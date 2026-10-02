@@ -1,0 +1,1 @@
+ALTER TABLE public.give ADD COLUMN IF NOT EXISTS result_version INT NOT NULL DEFAULT 0;
