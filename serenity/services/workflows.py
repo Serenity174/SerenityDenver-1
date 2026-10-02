@@ -72,6 +72,18 @@ async def publish_request(bot, repo, request_id, channel):
                 )
             )
             embed.set_footer(text=f"Заявка #{request_id}")
+            previous = await repo.previous(conn, row)
+            embed.add_field(
+                name="Прошлые заявки:",
+                value="\n".join(
+                    f"[Заявка #{item['id']}](https://discord.com/channels/"
+                    f"{item['guild_id']}/{item['channel_id']}/{item['message_id']})"
+                    for item in previous
+                )
+                if previous
+                else "Заявка оформлена впервые.",
+                inline=False,
+            )
             found = await channel.send(
                 content=" ".join(f"<@&{role}>" for role in get_settings().staff_role_ids),
                 embed=embed,

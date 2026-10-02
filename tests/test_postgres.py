@@ -219,6 +219,41 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
         channel.send.assert_not_awaited()
         self.assertEqual((await repo.get(row["id"]))["message_id"], 77)
 
+    async def test_published_requests_show_history_for_same_user_and_kind(self):
+        import discord
+
+        from serenity.services.workflows import publish_request
+
+        repo = RequestRepository(self.db.pool)
+
+        async def history(**kwargs):
+            for message in []:
+                yield message
+
+        channel = SimpleNamespace(
+            id=99, history=history, send=AsyncMock(return_value=SimpleNamespace(id=77))
+        )
+        bot = SimpleNamespace(user=SimpleNamespace(id=88), add_view=Mock())
+        first, _ = await repo.create(
+            1, 2, "application", {"_embed": discord.Embed(title="Test").to_dict()}
+        )
+        await publish_request(bot, repo, first["id"], channel)
+        self.assertEqual(
+            channel.send.call_args.kwargs["embed"].fields[-1].value, "Заявка оформлена впервые."
+        )
+        async with repo.locked(first["id"]) as (conn, row):
+            await repo.finish(conn, row["id"], "rejected", 10)
+        second, _ = await repo.create(1, 2, "application", {})
+        channel.send.return_value = SimpleNamespace(id=78)
+        await publish_request(bot, repo, second["id"], channel)
+        field = channel.send.call_args.kwargs["embed"].fields[-1]
+        self.assertEqual(field.name, "Прошлые заявки:")
+        self.assertIn("https://discord.com/channels/1/99/77", field.value)
+        self.assertNotIn("/78", field.value)
+        async with self.db.pool.acquire() as conn:
+            for overrides in ({"user_id": 3}, {"guild_id": 3}, {"kind": "bonus"}):
+                self.assertEqual(await repo.previous(conn, {**dict(second), **overrides}), [])
+
     async def test_promotion_retry_after_discord_failure_keeps_original_target(self):
         from serenity.services.workflows import resolve_request
 

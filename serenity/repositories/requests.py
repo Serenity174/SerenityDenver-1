@@ -49,6 +49,19 @@ class RequestRepository:
     async def get(self, request_id):
         return await self.pool.fetchrow("SELECT * FROM public.requests WHERE id=$1", request_id)
 
+    @staticmethod
+    async def previous(conn, row):
+        return await conn.fetch(
+            """SELECT id, guild_id, channel_id, message_id FROM public.requests
+            WHERE guild_id=$1 AND user_id=$2 AND kind=$3 AND id<$4
+            AND channel_id IS NOT NULL AND message_id IS NOT NULL
+            ORDER BY id DESC LIMIT 5""",
+            row["guild_id"],
+            row["user_id"],
+            row["kind"],
+            row["id"],
+        )
+
     @asynccontextmanager
     async def locked(self, request_id):
         async with self.pool.acquire() as conn:
