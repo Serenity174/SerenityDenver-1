@@ -10,16 +10,6 @@ async def run(settings):
     from serenity.bot import SerenityBot
 
     async with SerenityBot(settings) as bot:
-
-        @bot.command()
-        async def sync(ctx):
-            if not await bot.is_owner(ctx.author):
-                return await ctx.send("Команда доступна владельцу бота.")
-            import discord
-
-            synced = await bot.tree.sync(guild=discord.Object(id=settings.guild_id))
-            await ctx.send(f"Синхронизировано команд: {len(synced)}")
-
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGTERM, signal.SIGINT):
             try:

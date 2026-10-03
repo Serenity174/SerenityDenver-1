@@ -64,7 +64,7 @@ class SerenityBot(commands.Bot):
         intents = discord.Intents.default()
         intents.members = intents.message_content = intents.voice_states = intents.invites = True
         super().__init__(
-            command_prefix=settings.bot_command_prefix,
+            command_prefix=commands.when_mentioned_or(settings.bot_command_prefix),
             intents=intents,
             tree_cls=CommandTree,
             allowed_mentions=discord.AllowedMentions(everyone=False),
@@ -117,6 +117,58 @@ class SerenityBot(commands.Bot):
             await self.load_extension(f"serenity.cogs.{extension}")
             log.info("Loaded extension %s", extension)
         self.spawn(self._watch_lease(), name="database-lease")
+        self.spawn(self._sync_commands_on_ready(), name="sync-commands")
+
+    async def sync_guild_commands(self):
+        guild = discord.Object(id=self.settings.guild_id)
+        if self.tree.get_command("настройки", guild=guild) is None:
+            raise RuntimeError(
+                "Administration command missing; refusing to publish incomplete tree"
+            )
+        synced = await self.tree.sync(guild=guild)
+        log.info("Synced %s commands to guild=%s", len(synced), guild.id)
+        return synced
+
+    async def _sync_commands_on_ready(self):
+        await self.wait_until_ready()
+        if self.get_guild(self.settings.guild_id) is None:
+            log.error(
+                "Command sync skipped: bot is not in configured guild=%s", self.settings.guild_id
+            )
+            return
+        for attempt in range(3):
+            try:
+                await self.sync_guild_commands()
+                return
+            except discord.Forbidden:
+                log.exception(
+                    "Command sync forbidden; check applications.commands scope in guild=%s",
+                    self.settings.guild_id,
+                )
+                return
+            except discord.HTTPException:
+                log.exception("Command sync failed; attempt=%s", attempt + 1)
+                if attempt < 2:
+                    await asyncio.sleep(30)
+
+    @commands.command(name="sync")
+    async def sync_command(self, ctx):
+        from serenity.services.access import can_manage
+
+        if ctx.guild is None or ctx.guild.id != self.settings.guild_id:
+            return await ctx.send("Команда доступна только на сервере семьи.")
+        if not can_manage(ctx.author) and not await self.is_owner(ctx.author):
+            return await ctx.send(
+                "Команда доступна администратору, старшему составу и владельцу бота."
+            )
+        try:
+            synced = await self.sync_guild_commands()
+        except discord.Forbidden:
+            log.exception("Manual command sync forbidden")
+            return await ctx.send(
+                "Discord не разрешил обновить команды. Добавьте бота на сервер с разрешением applications.commands."
+            )
+        await ctx.send(f"Синхронизировано команд: {len(synced)}. Откройте /настройки.")
 
     async def _watch_lease(self):
         while not self.is_closed():
