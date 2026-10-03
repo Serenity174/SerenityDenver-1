@@ -9,24 +9,11 @@ from discord.ext import commands, tasks
 
 from serenity.config import get_settings
 from serenity.repositories.contracts import ContractDB
+from serenity.services.contract_rules import active_slots, role_priority
+from serenity.services.settings import timezone as configured_timezone
 from serenity.ui.base import View
 
 settings = get_settings()
-
-
-CONTRACT_CHANNEL_ID = settings.contract_channel_id
-GUILD_ID = settings.guild_id
-
-MAX_ACTIVE_SLOTS = 5  # including host
-
-ROLE_PRIORITY: Dict[int, int] = {
-    role_id: rank for rank, role_id in enumerate(settings.rank_role_ids, start=1)
-}
-# High Staff has lower priority than the numbered ranks.
-ROLE_PRIORITY[settings.high_staff_role_id] = len(settings.rank_role_ids) + 1
-
-HIGH_STAFF_ROLE_ID = settings.high_staff_role_id
-VERIFIED_ROLE_ID = settings.verified_role_id
 
 
 class RemoveUserSelect(discord.ui.Select):
@@ -71,7 +58,7 @@ class RemoveUserView(View):
     ):
         super().__init__(timeout=120)
         options: List[discord.SelectOption] = []
-        guild = cog.bot.get_guild(GUILD_ID)
+        guild = cog.bot.get_guild(settings.guild_id)
         for idx, row in enumerate(signups[:25]):  # Discord select limit
             member = guild.get_member(row["user_id"]) if guild else None
             label = member.display_name if member else str(row["user_id"])
@@ -194,22 +181,24 @@ class ContractsCog(commands.Cog):
     def _get_rank_from_member(self, member: discord.Member) -> int:
         ranks: List[int] = []
         for role in member.roles:
-            if role.id in ROLE_PRIORITY:
-                ranks.append(ROLE_PRIORITY[role.id])
+            if role.id in role_priority():
+                ranks.append(role_priority()[role.id])
         return min(ranks) if ranks else 999
 
     def _format_rank(self, rank: int) -> str:
-        if rank == ROLE_PRIORITY.get(HIGH_STAFF_ROLE_ID):
+        if rank == role_priority().get(settings.high_staff_role_id):
             return "High Staff"
         if rank == 999:
             return "нет ранга"
         return str(rank)
 
     def _is_high_staff(self, member: discord.Member) -> bool:
-        return any(r.id == HIGH_STAFF_ROLE_ID for r in member.roles)
+        return any(r.id == settings.high_staff_role_id for r in member.roles)
 
     def _has_contract_access(self, member: discord.Member) -> bool:
-        return self._is_high_staff(member) or any(r.id == VERIFIED_ROLE_ID for r in member.roles)
+        return self._is_high_staff(member) or any(
+            r.id == settings.verified_role_id for r in member.roles
+        )
 
     async def _ephemeral(self, interaction: Interaction, content: str):
         if not interaction.response.is_done():
@@ -270,13 +259,13 @@ class ContractsCog(commands.Cog):
                 f"(ранг {self._format_rank(row['rank'])}, нед.явок {row['weekly_attendance']})"
             )
             slot_number += 1
-            if len(main_lines) < MAX_ACTIVE_SLOTS:
+            if len(main_lines) < active_slots():
                 main_lines.append(line)
             else:
                 wait_lines.append(line)
 
         embed.add_field(
-            name=f"Состав (до {MAX_ACTIVE_SLOTS})",
+            name=f"Состав (до {active_slots()})",
             value="\n".join(main_lines) if main_lines else "Пока пусто",
             inline=False,
         )
@@ -314,7 +303,7 @@ class ContractsCog(commands.Cog):
     # ------------ Slash commands ------------ #
 
     @app_commands.command(name="основа", description="Создать запись на контракт")
-    @app_commands.guilds(discord.Object(id=GUILD_ID))
+    @app_commands.guilds(discord.Object(id=settings.guild_id))
     async def create_contract(self, interaction: Interaction):
         if not isinstance(interaction.user, discord.Member) or not self._is_high_staff(
             interaction.user
@@ -325,7 +314,11 @@ class ContractsCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True, thinking=True)
 
-        channel = interaction.guild.get_channel(CONTRACT_CHANNEL_ID) if interaction.guild else None
+        channel = (
+            interaction.guild.get_channel(settings.contract_channel_id)
+            if interaction.guild
+            else None
+        )
         if not channel or not isinstance(channel, discord.TextChannel):
             return await interaction.followup.send(
                 "Канал для контрактов не найден.", ephemeral=True
@@ -365,7 +358,7 @@ class ContractsCog(commands.Cog):
         )
 
     @app_commands.command(name="профиль", description="Показать статистику явок пользователя")
-    @app_commands.guilds(discord.Object(id=GUILD_ID))
+    @app_commands.guilds(discord.Object(id=settings.guild_id))
     @app_commands.default_permissions()
     @app_commands.describe(user="Кого показать")
     async def profile(self, interaction: Interaction, user: Optional[discord.Member] = None):
@@ -403,7 +396,7 @@ class ContractsCog(commands.Cog):
         name="сброс_контрактов",
         description="Очистить контракты и обнулить явки (только High Staff)",
     )
-    @app_commands.guilds(discord.Object(id=GUILD_ID))
+    @app_commands.guilds(discord.Object(id=settings.guild_id))
     async def reset_contracts(self, interaction: Interaction):
         if not isinstance(interaction.user, discord.Member) or not self._is_high_staff(
             interaction.user
@@ -442,8 +435,8 @@ class ContractsCog(commands.Cog):
                 interaction,
                 (
                     "Вы не подтвердили свой уровень.\n"
-                    f"Запись на контракт доступна только тем, кто отправил скриншот из F2 - Персонаж-Статистика в канал канал <#{CONTRACT_CHANNEL_ID}>.\n"
-                    f"После того, как Вы получите роль <@&{VERIFIED_ROLE_ID}> запишитесь ещё раз."
+                    f"Запись на контракт доступна только тем, кто отправил скриншот из F2 - Персонаж-Статистика в канал канал <#{settings.contract_channel_id}>.\n"
+                    f"После того, как Вы получите роль <@&{settings.verified_role_id}> запишитесь ещё раз."
                 ),
             )
 
@@ -480,8 +473,8 @@ class ContractsCog(commands.Cog):
                 interaction,
                 (
                     "Вы не подтвердили свой уровень.\n"
-                    f"Запись на контракт доступна только тем, кто отправил скриншот из F2 - Персонаж-Статистика в канал канал <#{CONTRACT_CHANNEL_ID}>.\n"
-                    f"После того, как Вы получите роль <@&{VERIFIED_ROLE_ID}> запишитесь ещё раз."
+                    f"Запись на контракт доступна только тем, кто отправил скриншот из F2 - Персонаж-Статистика в канал канал <#{settings.contract_channel_id}>.\n"
+                    f"После того, как Вы получите роль <@&{settings.verified_role_id}> запишитесь ещё раз."
                 ),
             )
 
@@ -576,7 +569,7 @@ class ContractsCog(commands.Cog):
     async def weekly_reset_task(self):
         from datetime import timedelta
 
-        now = datetime.now(timezone(timedelta(hours=3)))
+        now = datetime.now(configured_timezone())
         start = (now - timedelta(days=now.weekday())).replace(
             hour=0, minute=0, second=0, microsecond=0
         )

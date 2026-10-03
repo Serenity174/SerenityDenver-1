@@ -12,7 +12,6 @@ from serenity.ui.base import Modal, View
 settings = get_settings()
 
 # Путь к файлу для хранения ID сообщения с кнопкой
-CACHE_FILE = settings.bonus_cache_path
 
 
 # Модальное окно для ввода данных персонажа и доказательства
@@ -81,8 +80,8 @@ class PromoCommand(commands.Cog):
     async def cog_load(self):
         state = StateRepository()
         self.cached_message_id = await state.get(settings.guild_id, "panels", "bonus")
-        if self.cached_message_id is None and CACHE_FILE.exists():
-            with CACHE_FILE.open(encoding="utf-8") as file:
+        if self.cached_message_id is None and settings.bonus_cache_path.exists():
+            with settings.bonus_cache_path.open(encoding="utf-8") as file:
                 self.cached_message_id = json.load(file).get("message_id")
             if self.cached_message_id:
                 await self.save_cached_message_id(self.cached_message_id)
@@ -91,42 +90,11 @@ class PromoCommand(commands.Cog):
         await StateRepository().put(settings.guild_id, "panels", "bonus", message_id)
 
     async def send_embed_with_button(self, ctx):
-        role_id = settings.high_staff_role_id
-        support_role_id = settings.support_role_id
-        if discord.utils.get(ctx.author.roles, id=role_id):
-            embed = discord.Embed(
-                title="Как получить бонусы за промокод?",
-                description=(
-                    "```1. Введите команду /promo SERENITY в игровой чат.\n"
-                    "2. Сделайте полный скриншот с подтверждением ввода команды.\n"
-                    "3. Отправьте скриншот в качестве доказательства активации.\n"
-                    "4. Ожидайте уведомление о начислении бонуса.```\n"
-                    f"<@&{support_role_id}> — выдаётся всем, кто использует промокод и поддерживает нашу семью "
-                    "на сервере Seattle.\n"
-                    "Также данная роль присваивается всем, кто оказал помощь семье. Это может быть финансовая помощь в развитии семьи, организация и участие в мероприятиях, предоставление ресурсов или любая иная значимая помощь, направленная на укрепление и развитие нашей семьи. Список не является исчерпывающим."
-                ),
-                color=discord.Color.from_rgb(255, 255, 255),
-            )
-            embed.set_image(url="https://i.imgur.com/46TDn4m.png")
-            embed.set_footer(text="Регистрируйтесь и присоединяйтесь — мы ждём вас на Seattle!")
+        if not any(role.id == settings.high_staff_role_id for role in ctx.author.roles):
+            return await ctx.send("Нет прав для публикации панели.", delete_after=5)
+        from serenity.services.panels import publish_panel
 
-            channel = self.bot.get_channel(settings.bonus_channel_id)
-            if channel:
-                if self.cached_message_id:
-                    try:
-                        cached_message = await channel.fetch_message(self.cached_message_id)
-                        await cached_message.edit(embed=embed, view=PromoButton())
-                    except discord.NotFound:
-                        message = await channel.send(embed=embed, view=PromoButton())
-                        await self.save_cached_message_id(message.id)
-                        self.cached_message_id = message.id
-                else:
-                    message = await channel.send(embed=embed, view=PromoButton())
-                    await self.save_cached_message_id(message.id)
-                    self.cached_message_id = message.id
-        else:
-            msg = await ctx.send("❌ У вас нет прав на использование этой команды.")
-            await msg.delete(delay=5)
+        await publish_panel(self.bot, "bonus")
 
     @commands.command(name="madam")
     async def madam_command(self, ctx):

@@ -7,11 +7,10 @@ import discord
 from discord.ext import commands
 
 from serenity.config import get_settings
+from serenity.repositories.state import StateRepository
+from serenity.services.settings import enabled, images, option
 
 settings = get_settings()
-
-WELCOME_CHANNEL_ID = settings.welcome_channel_id
-GUILD_ID = settings.guild_id
 
 
 class Welcome(commands.Cog):
@@ -39,7 +38,8 @@ class Welcome(commands.Cog):
         ]
 
     async def cog_load(self):
-        await self._refresh_invites()
+        saved = await StateRepository().get(settings.guild_id, "invites", "counts", {})
+        self.invite_cache[settings.guild_id] = saved
 
     async def _refresh_invites(self):
         async with self._lock:
@@ -49,6 +49,9 @@ class Welcome(commands.Cog):
                 except Exception:
                     continue
                 self.invite_cache[guild.id] = {inv.code: inv.uses or 0 for inv in invites}
+                await StateRepository().put(
+                    guild.id, "invites", "counts", self.invite_cache[guild.id]
+                )
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -57,7 +60,11 @@ class Welcome(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
-        if member.bot or member.guild.id != GUILD_ID:
+        async with self._lock:
+            await self._member_join_locked(member)
+
+    async def _member_join_locked(self, member: discord.Member):
+        if member.bot or member.guild.id != settings.guild_id:
             return
 
         guild = member.guild
@@ -74,6 +81,7 @@ class Welcome(commands.Cog):
                     break
             # Обновляем кэш
             self.invite_cache[guild.id] = {inv.code: inv.uses or 0 for inv in invites_now}
+            await StateRepository().put(guild.id, "invites", "counts", self.invite_cache[guild.id])
         except Exception:
             logging.getLogger(__name__).exception("Optional Discord action failed")
 
@@ -84,7 +92,12 @@ class Welcome(commands.Cog):
             inviter.id if inviter else None,
         )
 
-        channel = guild.get_channel(WELCOME_CHANNEL_ID) or self.bot.get_channel(WELCOME_CHANNEL_ID)
+        if not enabled("welcome"):
+            return
+
+        channel = guild.get_channel(settings.welcome_channel_id) or self.bot.get_channel(
+            settings.welcome_channel_id
+        )
         if channel is None:
             return
 
@@ -101,11 +114,11 @@ class Welcome(commands.Cog):
         )
 
         embed = discord.Embed(
-            title=f"{settings.welcome_emoji} Добро пожаловать в Serenity!",
-            description=description,
+            title=option("welcome_title", f"{settings.welcome_emoji} Добро пожаловать в Serenity!"),
+            description=option("welcome_text", description),
             color=discord.Color.from_rgb(255, 255, 255),
         )
-        embed.set_image(url=random.choice(self.images))
+        embed.set_image(url=random.choice(images("welcome_images", self.images)))
 
         try:
             await channel.send(content=content, embed=embed)

@@ -10,31 +10,26 @@ from serenity.repositories.reports import ReportRepository
 
 # Reuse the same categories/prices and config from the existing report cog
 from serenity.services.reporting import report_total
+from serenity.services.settings import prices
 from serenity.ui.base import Modal, View
 
 settings = get_settings()
-ROLE_ID = settings.high_staff_role_id
-OUTPUT_CHANNEL_ID = settings.report_output_channel_id
-INTERFACE_CHANNEL_ID = settings.report_interface_channel_id
-GUILD_ID = settings.guild_id
-
-DATABASE_URL = settings.database_url
 
 
-class DBReportModal(Modal, title="Подача отчёта в БД"):
+class DBReportModal(Modal, title="Подача отчёта"):
     category: str
     quantity = ui.TextInput(label="Количество", placeholder="Введите число")
     proof = ui.TextInput(label="Доказательство", placeholder="Ссылка на скриншот")
 
     def __init__(self, category: str, db_pool: asyncpg.Pool | None):
-        super().__init__(title="Подача отчёта в БД")
+        super().__init__(title="Подача отчёта")
         self.category = category
         self.db_pool = db_pool
 
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
-        if not self.quantity.value.isdigit():
+        if not self.quantity.value.isascii() or not self.quantity.value.isdigit():
             return await interaction.followup.send(
                 "⚠️ Введите целое число в поле количества.", ephemeral=True
             )
@@ -54,7 +49,7 @@ class DBReportModal(Modal, title="Подача отчёта в БД"):
 
         ts = int(datetime.now().timestamp())
         embed = discord.Embed(
-            title="Новый отчёт по складу (DB)!",
+            title="Новый отчёт по складу",
             color=discord.Color.from_rgb(255, 255, 255),
             description=(
                 f"**Игрок:** {nickname}\n"
@@ -77,6 +72,7 @@ class DBReportModal(Modal, title="Подача отчёта в БД"):
             proof=self.proof.value,
             user_id=interaction.user.id,
             username=interaction.user.name,
+            publication={"channel_id": settings.report_output_channel_id, "embed": embed.to_dict()},
         )
         if record_id is None:
             return await interaction.followup.send("Этот отчёт уже сохранён.", ephemeral=True)
@@ -84,31 +80,23 @@ class DBReportModal(Modal, title="Подача отчёта в БД"):
         if record_id is not None:
             embed.set_footer(text=f"ID записи: {record_id}")
 
-        await interaction.client.get_channel(OUTPUT_CHANNEL_ID).send(embed=embed)
-        await interaction.followup.send("✅ Отчёт сохранён в базе данных.", ephemeral=True)
-
-        # Обновить кнопки выбора
-        iface = interaction.client.get_channel(INTERFACE_CHANNEL_ID)
-        async for msg in iface.history(limit=50):
-            if msg.author.id == interaction.client.user.id and msg.components:
-                await msg.delete()
-        view = DBReportView(db_pool=self.db_pool, move_button=True)
-        new_embed = discord.Embed(color=discord.Color.from_rgb(255, 255, 255))
-        new_embed.set_image(url="https://i.ibb.co/8DYKVC1k/Get-Back-To-Work.png")
-        await iface.send(embed=new_embed, view=view)
+        await interaction.followup.send(
+            "✅ Отчёт сохранён. Сообщение появится в канале в течение нескольких секунд.",
+            ephemeral=True,
+        )
 
 
-class DeleteReportModal(Modal, title="Удалить запись из БД"):
+class DeleteReportModal(Modal, title="Удалить отчёт"):
     report_id = ui.TextInput(
-        label="ID записи", placeholder="Число из таблицы reports", max_length=20
+        label="ID записи", placeholder="Номер из сообщения с отчётом", max_length=20
     )
 
     def __init__(self, db_pool: asyncpg.Pool | None):
-        super().__init__(title="Удалить запись из БД")
+        super().__init__(title="Удалить отчёт")
         self.db_pool = db_pool
 
     async def on_submit(self, interaction: discord.Interaction):
-        if not any(r.id == ROLE_ID for r in interaction.user.roles):
+        if not any(r.id == settings.high_staff_role_id for r in interaction.user.roles):
             return await interaction.response.send_message(
                 "Нет прав удалять записи.", ephemeral=True
             )
@@ -152,6 +140,11 @@ class DBReportView(View):
         self.move_button = move_button
 
     def get_select_view(self, category_list):
+        category_list = [name for name in category_list if name in prices()]
+        if not category_list:
+            view = ui.View(timeout=180)
+            view.add_item(ui.Button(label="В этой группе нет категорий", disabled=True))
+            return view
         select = ui.Select(
             placeholder="Выберите категорию",
             options=[discord.SelectOption(label=item) for item in category_list],
@@ -207,9 +200,20 @@ class DBReportView(View):
         view = self.get_select_view(categories)
         await interaction.response.send_message("Выберите категорию:", view=view, ephemeral=True)
 
+    @ui.button(
+        label="Все категории",
+        style=discord.ButtonStyle.primary,
+        custom_id="report_all_categories",
+        row=1,
+    )
+    async def all_categories(self, interaction, button):
+        await interaction.response.send_message(
+            "Выберите категорию:", view=CategoryPicker(self.db_pool), ephemeral=True
+        )
+
     @ui.button(label="🛠️", style=discord.ButtonStyle.secondary, custom_id="db_tools_button")
     async def manage_reports(self, interaction: discord.Interaction, button: ui.Button):
-        if not any(r.id == ROLE_ID for r in interaction.user.roles):
+        if not any(r.id == settings.high_staff_role_id for r in interaction.user.roles):
             return await interaction.response.send_message("Нет прав.", ephemeral=True)
         if not self.db_pool:
             return await interaction.response.send_message("База недоступна.", ephemeral=True)
@@ -225,7 +229,7 @@ class ClearConfirmView(View):
 
     @ui.button(label="Да, удалить", style=discord.ButtonStyle.danger, custom_id="db_clear_confirm")
     async def confirm(self, interaction: discord.Interaction, button: ui.Button):
-        if not any(r.id == ROLE_ID for r in interaction.user.roles):
+        if not any(r.id == settings.high_staff_role_id for r in interaction.user.roles):
             return await interaction.response.send_message("⚠️ Нет доступа.", ephemeral=True)
         if not self.db_pool:
             return await interaction.response.send_message(
@@ -235,7 +239,7 @@ class ClearConfirmView(View):
         try:
             async with self.db_pool.acquire() as conn:
                 await conn.execute("TRUNCATE TABLE public.reports")
-            await interaction.followup.send("✅ Таблица `reports` очищена.", ephemeral=True)
+            await interaction.followup.send("✅ Все отчёты удалены.", ephemeral=True)
         except Exception as e:
             await interaction.followup.send(f"⚠️ Ошибка очистки: {e}", ephemeral=True)
         finally:
@@ -254,7 +258,7 @@ class ManageReportsView(View):
 
     @ui.button(label="📂 Удалить запись", style=discord.ButtonStyle.secondary)
     async def delete_one(self, interaction: discord.Interaction, button: ui.Button):
-        if not any(r.id == ROLE_ID for r in interaction.user.roles):
+        if not any(r.id == settings.high_staff_role_id for r in interaction.user.roles):
             return await interaction.response.send_message(
                 "Нет прав удалять записи.", ephemeral=True
             )
@@ -265,7 +269,7 @@ class ManageReportsView(View):
 
     @ui.button(label="🗑️ Очистить всё", style=discord.ButtonStyle.secondary)
     async def clear_reports(self, interaction: discord.Interaction, button: ui.Button):
-        if not any(r.id == ROLE_ID for r in interaction.user.roles):
+        if not any(r.id == settings.high_staff_role_id for r in interaction.user.roles):
             return await interaction.response.send_message("Нет прав.", ephemeral=True)
         if not self.db_pool:
             return await interaction.response.send_message("База недоступна.", ephemeral=True)
@@ -273,8 +277,8 @@ class ManageReportsView(View):
         embed = discord.Embed(
             title="Подтвердите очистку",
             description=(
-                "Вы точно хотите удалить данные Database?\n"
-                "Удаление приведёт к полной отчистке отчётов для всех пользователей!"
+                "Удалить все отчёты?\n"
+                "Удаление приведёт к полной очистке отчётов для всех пользователей!"
             ),
             color=discord.Color.from_rgb(255, 255, 255),
         )
@@ -292,7 +296,7 @@ class ReportDB(commands.Cog):
 
     async def cog_load(self):
         self.db_pool = self.bot.database.pool
-        guild = discord.Object(id=GUILD_ID)
+        guild = discord.Object(id=settings.guild_id)
         self.bot.tree.add_command(self.report_db, guild=guild)
         self.bot.add_view(DBReportView(db_pool=self.db_pool))
 
@@ -300,15 +304,44 @@ class ReportDB(commands.Cog):
         name="report_db", description="Отчёт по складу с сохранением в базу данных"
     )
     async def report_db(self, interaction: discord.Interaction):
-        if not any(r.id == ROLE_ID for r in interaction.user.roles):
+        if not any(r.id == settings.high_staff_role_id for r in interaction.user.roles):
             return await interaction.response.send_message("⚠️ Нет доступа.", ephemeral=True)
-        await interaction.response.send_message("Форма отправлена вам в ЛС.", ephemeral=True)
-        embed = discord.Embed(color=discord.Color.from_rgb(255, 255, 255))
-        embed.set_image(url="https://i.ibb.co/8DYKVC1k/Get-Back-To-Work.png")
-        await interaction.client.get_channel(INTERFACE_CHANNEL_ID).send(
-            embed=embed, view=DBReportView(db_pool=self.db_pool)
+        from serenity.services.panels import publish_panel
+
+        await interaction.response.defer(ephemeral=True)
+        await publish_panel(interaction.client, "reports")
+        await interaction.followup.send(
+            "Панель отчётов обновлена в настроенном канале.", ephemeral=True
         )
 
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ReportDB(bot))
+
+
+class CategoryPicker(View):
+    def __init__(self, pool, page=0):
+        super().__init__(timeout=180)
+        categories = list(prices())
+        select = ui.Select(
+            placeholder="Категория",
+            options=[
+                discord.SelectOption(label=name, value=name)
+                for name in categories[page * 25 : (page + 1) * 25]
+            ],
+        )
+
+        async def callback(interaction):
+            await interaction.response.send_modal(DBReportModal(select.values[0], pool))
+
+        select.callback = callback
+        self.add_item(select)
+        for label, destination in (("Назад", page - 1), ("Далее", page + 1)):
+            if 0 <= destination < (len(categories) + 24) // 25:
+                button = ui.Button(label=label)
+
+                async def navigate(interaction, target=destination):
+                    await interaction.response.edit_message(view=CategoryPicker(pool, target))
+
+                button.callback = navigate
+                self.add_item(button)

@@ -16,18 +16,6 @@ from serenity.ui.base import Modal, View
 
 settings = get_settings()
 
-TEMP_VOICE_TRIGGER_CHANNEL_ID = settings.temp_voice_trigger_channel_id  # ID триггер-канала
-TEMP_VOICE_CATEGORY_ID = (
-    settings.temp_voice_category_id
-)  # ID категории для временных каналов (0 = без категории)
-TEMP_VOICE_ALLOWED_ROLE_ID = (
-    settings.temp_voice_allowed_role_id
-)  # Allowed role for default temp voice access
-TEMP_VOICE_DEFAULT_NAME = settings.temp_voice_default_name
-TEMP_VOICE_DEFAULT_LIMIT = (
-    settings.temp_voice_default_limit or None
-)  # например 5, или None для без лимита
-TEMP_VOICE_GUILD_ID = settings.temp_voice_guild_id  # ID сервера (0 = без ограничения)
 
 logger = logging.getLogger("temp_voice")
 
@@ -51,11 +39,11 @@ active_channels: Dict[int, TempVoiceChannelInfo] = {}
 
 
 def is_trigger(guild_id: int, channel_id: Optional[int]) -> bool:
-    if not TEMP_VOICE_TRIGGER_CHANNEL_ID or channel_id is None:
+    if not settings.temp_voice_trigger_channel_id or channel_id is None:
         return False
-    if TEMP_VOICE_GUILD_ID and guild_id != TEMP_VOICE_GUILD_ID:
+    if settings.temp_voice_guild_id and guild_id != settings.temp_voice_guild_id:
         return False
-    return TEMP_VOICE_TRIGGER_CHANNEL_ID == channel_id
+    return settings.temp_voice_trigger_channel_id == channel_id
 
 
 async def create_temp_voice_channel(
@@ -66,12 +54,12 @@ async def create_temp_voice_channel(
         return None
 
     category = None
-    if TEMP_VOICE_CATEGORY_ID:
-        channel = member.guild.get_channel(TEMP_VOICE_CATEGORY_ID)
+    if settings.temp_voice_category_id:
+        channel = member.guild.get_channel(settings.temp_voice_category_id)
         if isinstance(channel, discord.CategoryChannel):
             category = channel
 
-    channel_name = TEMP_VOICE_DEFAULT_NAME.replace("{user}", member.display_name)
+    channel_name = settings.temp_voice_default_name.replace("{user}", member.display_name)
     overwrites = {
         member: discord.PermissionOverwrite(
             view_channel=True,
@@ -86,7 +74,7 @@ async def create_temp_voice_channel(
             connect=False,
         ),
     }
-    allowed_role = member.guild.get_role(TEMP_VOICE_ALLOWED_ROLE_ID)
+    allowed_role = member.guild.get_role(settings.temp_voice_allowed_role_id)
     if allowed_role is not None:
         overwrites[allowed_role] = discord.PermissionOverwrite(
             view_channel=True,
@@ -96,13 +84,13 @@ async def create_temp_voice_channel(
     channel = await member.guild.create_voice_channel(
         name=channel_name,
         category=category,
-        user_limit=TEMP_VOICE_DEFAULT_LIMIT or 0,
+        user_limit=settings.temp_voice_default_limit or 0,
         overwrites=overwrites,
     )
 
     active_channels[channel.id] = TempVoiceChannelInfo(
         owner_id=member.id,
-        user_limit=TEMP_VOICE_DEFAULT_LIMIT,
+        user_limit=settings.temp_voice_default_limit or None,
         is_locked=False,
         is_hidden=False,
     )
@@ -585,7 +573,10 @@ async def toggle_lock(channel: discord.VoiceChannel) -> bool:
         return False
     try:
         new_locked = not info.is_locked
-        target = channel.guild.get_role(TEMP_VOICE_ALLOWED_ROLE_ID) or channel.guild.default_role
+        target = (
+            channel.guild.get_role(settings.temp_voice_allowed_role_id)
+            or channel.guild.default_role
+        )
         overwrite = channel.overwrites_for(target)
         overwrite.connect = not new_locked
         await channel.set_permissions(target, overwrite=overwrite)
@@ -605,7 +596,10 @@ async def toggle_hide(channel: discord.VoiceChannel) -> bool:
         return False
     try:
         new_hidden = not info.is_hidden
-        target = channel.guild.get_role(TEMP_VOICE_ALLOWED_ROLE_ID) or channel.guild.default_role
+        target = (
+            channel.guild.get_role(settings.temp_voice_allowed_role_id)
+            or channel.guild.default_role
+        )
         overwrite = channel.overwrites_for(target)
         overwrite.view_channel = not new_hidden
         await channel.set_permissions(target, overwrite=overwrite)
@@ -725,8 +719,8 @@ class TempVoice(commands.Cog):
     async def cog_load(self):
         await load_channels(active_channels, TempVoiceChannelInfo)
         self.bot.add_view(TempVoicePanelView(self.bot))
-        if TEMP_VOICE_GUILD_ID:
-            guild = discord.Object(id=TEMP_VOICE_GUILD_ID)
+        if settings.temp_voice_guild_id:
+            guild = discord.Object(id=settings.temp_voice_guild_id)
             self.bot.tree.add_command(self.temp_voice_panel, guild=guild)
 
     def cog_unload(self):
@@ -749,7 +743,13 @@ class TempVoice(commands.Cog):
         after: discord.VoiceState,
     ):
         try:
-            if after.channel and is_trigger(member.guild.id, after.channel.id):
+            from serenity.services.settings import enabled
+
+            if (
+                enabled("temp_voice")
+                and after.channel
+                and is_trigger(member.guild.id, after.channel.id)
+            ):
                 temp_channel = await create_temp_voice_channel(member, after.channel.id)
                 if temp_channel:
                     try:
@@ -796,7 +796,7 @@ class TempVoice(commands.Cog):
             title="Панель управление приватными комнатами",
             description=(
                 "Как использовать?\n"
-                f"1. Зайдите в <#{TEMP_VOICE_TRIGGER_CHANNEL_ID}> для создания временного канала.\n"
+                f"1. Зайдите в <#{settings.temp_voice_trigger_channel_id}> для создания временного канала.\n"
                 "2. Используйте кнопки ниже для управления вашим каналом.\n\n"
                 f"{settings.voice_settings_emoji} Настройки канала:\n\n"
                 "✏️ - Изменить название канала\n"

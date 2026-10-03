@@ -31,10 +31,16 @@ ITEM_PRICES = {
 
 
 def report_total(category, quantity):
-    if category not in ITEM_PRICES:
+    from serenity.services.settings import prices
+
+    current_prices = prices()
+    if category not in current_prices:
         raise ValueError("Неизвестная категория отчёта.")
     if not 1 <= quantity <= 1_000_000:
         raise ValueError("Количество должно быть от 1 до 1 000 000.")
-    return (Decimal(str(ITEM_PRICES[category])) * quantity).quantize(
+    total = (Decimal(str(current_prices[category])) * quantity).quantize(
         Decimal("0.01"), rounding=ROUND_HALF_UP
     )
+    if total > Decimal("9999999999.99"):
+        raise ValueError("Сумма отчёта слишком велика. Уменьшите количество или проверьте цену.")
+    return total

@@ -1,8 +1,6 @@
 import logging
-import random
 import re
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 
 import discord
 from discord import app_commands
@@ -12,11 +10,13 @@ from serenity.config import get_settings
 from serenity.database import get_database
 from serenity.repositories.jobs import JobRepository
 from serenity.repositories.state import StateRepository
+from serenity.services.access import high_staff
+from serenity.services.settings import enabled, option
+from serenity.services.settings import timezone as configured_timezone
 from serenity.ui.base import Modal, View
 
 settings = get_settings()
 log = logging.getLogger(__name__)
-MSK = ZoneInfo("Europe/Moscow")
 
 
 def parse_birthday(value):
@@ -124,9 +124,11 @@ class Birthday(commands.Cog):
 
     @tasks.loop(minutes=5)
     async def check_birthdays(self):
+        if not enabled("birthday"):
+            return
         try:
             await self.import_history()
-            now = datetime.now(MSK)
+            now = datetime.now(configured_timezone())
             rows = await self.bot.database.pool.fetch(
                 "SELECT user_id FROM public.birthdays WHERE guild_id=$1 AND day=$2 AND month=$3",
                 settings.guild_id,
@@ -140,13 +142,9 @@ class Birthday(commands.Cog):
                     f"birthday:{settings.guild_id}:{row['user_id']}:{now.date()}",
                     {
                         "channel_id": settings.birthday_channel_id,
-                        "content": f"Сегодня <@{row['user_id']}> празднует день рождения! "
-                        + random.choice(
-                            [
-                                "Желаем счастья, здоровья и радости!",
-                                "Пусть сбудется всё, о чём мечтаешь!",
-                            ]
-                        ),
+                        "content": option(
+                            "birthday_text", "Сегодня {user} празднует день рождения!"
+                        ).replace("{user}", f"<@{row['user_id']}>"),
                     },
                     now,
                     expires,
@@ -159,13 +157,13 @@ class Birthday(commands.Cog):
         await self.bot.wait_until_ready()
 
     @app_commands.command(name="др", description="Отправить форму дней рождения")
-    @app_commands.checks.has_role(settings.high_staff_role_id)
+    @high_staff()
     async def birthday_command(self, interaction):
-        channel = self.bot.get_channel(settings.birthday_channel_id)
-        await channel.send(
-            embed=discord.Embed(title="Укажите дату рождения! 🎂"), view=BirthdayView()
-        )
-        await interaction.response.send_message("Форма отправлена.", ephemeral=True)
+        from serenity.services.panels import publish_panel
+
+        await interaction.response.defer(ephemeral=True)
+        await publish_panel(self.bot, "birthday")
+        await interaction.followup.send("Панель обновлена в настроенном канале.", ephemeral=True)
 
 
 async def setup(bot):

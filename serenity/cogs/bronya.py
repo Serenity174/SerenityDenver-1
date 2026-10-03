@@ -11,9 +11,6 @@ from serenity.ui.base import Modal, View
 
 settings = get_settings()
 
-ROLE_ID = settings.high_staff_role_id
-GUILD_ID = settings.guild_id
-CHANNEL_ID = settings.bronya_channel_id
 
 EMBED_TITLE = "Запись участников"
 CLOSE_MARKER = "Запись закрыта."
@@ -52,7 +49,7 @@ class SignUpModal(Modal, title="Открыть запись на контрак�
         view = SignUpView(interaction.user, max_count, content)
         embed = view.build_embed()
 
-        channel = interaction.guild.get_channel(CHANNEL_ID)
+        channel = interaction.guild.get_channel(settings.bronya_channel_id)
         if not channel:
             await interaction.response.send_message(
                 "Не удалось найти канал для записи.", ephemeral=True
@@ -116,7 +113,9 @@ class SignUpView(View):
         return embed
 
     def is_creator_or_role(self, user: discord.Member) -> bool:
-        return user.id == self.creator.id or any(role.id == ROLE_ID for role in user.roles)
+        return user.id == self.creator.id or any(
+            role.id == settings.high_staff_role_id for role in user.roles
+        )
 
     def refresh_buttons(self) -> None:
         self.clear_items()
@@ -257,7 +256,7 @@ class Bronya(commands.Cog):
     @app_commands.command(name="броня", description="Открыть запись на контракт")
     async def броня(self, interaction: discord.Interaction):
         if not interaction.user.guild_permissions.manage_guild and not any(
-            role.id == ROLE_ID for role in interaction.user.roles
+            role.id == settings.high_staff_role_id for role in interaction.user.roles
         ):
             await interaction.response.send_message(
                 "У тебя нет прав открывать запись.", ephemeral=True
@@ -267,21 +266,21 @@ class Bronya(commands.Cog):
         await interaction.response.send_modal(SignUpModal(interaction, self.bot))
 
     async def cog_load(self):
-        guild = discord.Object(id=GUILD_ID)
+        guild = discord.Object(id=settings.guild_id)
         self.bot.tree.add_command(self.броня, guild=guild)
         self.restore_task = self.bot.spawn(self.restore_signups(), name="restore-bronya")
 
     async def restore_signups(self):
         await self.bot.wait_until_ready()
-        channel = self.bot.get_channel(CHANNEL_ID)
+        channel = self.bot.get_channel(settings.bronya_channel_id)
         if not channel or not isinstance(channel, discord.TextChannel):
             return
 
         state = StateRepository()
-        imported = await state.get(GUILD_ID, "imports", "bronya")
+        imported = await state.get(settings.guild_id, "imports", "bronya")
         saved = await state.all("bronya")
         for row in saved:
-            if row["guild_id"] != GUILD_ID or row["value"].get("no_buttons"):
+            if row["guild_id"] != settings.guild_id or row["value"].get("no_buttons"):
                 continue
             data = row["value"]
             try:
@@ -305,7 +304,7 @@ class Bronya(commands.Cog):
         async for message in channel.history(limit=None):
             if message.author.id != self.bot.user.id:
                 continue
-            if await state.get(GUILD_ID, "bronya", message.id):
+            if await state.get(settings.guild_id, "bronya", message.id):
                 continue
             if (
                 not message.components
@@ -332,7 +331,7 @@ class Bronya(commands.Cog):
 
             await view.persist()
             self.bot.add_view(view, message_id=message.id)
-        await state.put(GUILD_ID, "imports", "bronya", True)
+        await state.put(settings.guild_id, "imports", "bronya", True)
 
     def _parse_max_participants(self, content: str) -> int | None:
         match = re.search(r"Максимальное количество участников:\s*(\d+)", content)

@@ -13,19 +13,16 @@ from discord.ext import commands, tasks
 
 from serenity.config import get_settings
 from serenity.repositories.payouts import PayoutRepository
+from serenity.services.access import high_staff
+from serenity.services.settings import enabled, images, option
+from serenity.services.settings import timezone as configured_timezone
 
 settings = get_settings()
 
 # Константы
-GUILD_ID = settings.guild_id
-HIGH_STAFF_ROLE_ID = settings.high_staff_role_id
-PAYOUT_CHANNEL_ID = settings.payout_channel_id
-PAYOUT_FILE_CHANNEL_ID = settings.payout_file_channel_id
-ATTENDANCE_REWARD = 40_000
 COMMENT = "Недельная премия"
 
 # Временная зона МСК
-MSK = timezone(timedelta(hours=3))
 
 IMAGE_POOL = [
     "https://i.ibb.co/SwPXfHTY/payments1.png",
@@ -73,7 +70,7 @@ class Payouts(commands.Cog):
 
     async def cog_load(self):
         self.pool = self.bot.database.pool
-        guild = discord.Object(id=GUILD_ID)
+        guild = discord.Object(id=settings.guild_id)
         self.bot.tree.add_command(self.manual_payout, guild=guild)
 
     async def cog_unload(self):
@@ -100,9 +97,15 @@ class Payouts(commands.Cog):
 
     @tasks.loop(minutes=5)
     async def loop_task(self):
-        now_msk = datetime.now(MSK)
+        if not enabled("payouts"):
+            return
+        now_msk = datetime.now(configured_timezone())
+        payout_hour, payout_minute = map(int, option("payout_time", "23:30").split(":"))
         # воскресенье (6), 23:30
-        if not (now_msk.weekday() == 6 and now_msk.hour == 23 and now_msk.minute >= 30):
+        if not (
+            now_msk.weekday() == 6
+            and (now_msk.hour, now_msk.minute) >= (payout_hour, payout_minute)
+        ):
             return
         last_run = await self._get_meta("last_payout_date")
         if last_run == now_msk.date().isoformat():
@@ -118,10 +121,8 @@ class Payouts(commands.Cog):
         await self.bot.wait_until_ready()
         # ensure pool created in cog_load
 
-    @app_commands.command(
-        name="предрасчет", description="Ручной предрасчёт за текущую неделю (МСК)"
-    )
-    @app_commands.checks.has_role(HIGH_STAFF_ROLE_ID)
+    @app_commands.command(name="предрасчет", description="Ручной предрасчёт за текущую неделю")
+    @high_staff()
     async def manual_payout(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         result = await self._run_payout()
@@ -136,7 +137,7 @@ class Payouts(commands.Cog):
             return "База данных недоступна."
 
         # Границы недели (понедельник 00:00 МСК -> понедельник 00:00 следующей)
-        now_msk = datetime.now(MSK)
+        now_msk = datetime.now(configured_timezone())
         week_start_msk = now_msk - timedelta(days=now_msk.weekday())
         week_start_msk = week_start_msk.replace(hour=0, minute=0, second=0, microsecond=0)
         week_end_msk = week_start_msk + timedelta(days=7)
@@ -150,21 +151,23 @@ class Payouts(commands.Cog):
         run = None
         if scheduled:
             run = await PayoutRepository(self.pool).snapshot(
-                GUILD_ID, week_start_msk.date(), payouts
+                settings.guild_id, week_start_msk.date(), payouts
             )
             if run["completed_at"]:
                 return "Расчёт за эту неделю уже опубликован."
             payouts = [{**row, "amount": Decimal(row["amount"])} for row in run["payload"]]
         await self._send_results(payouts, week_end_msk, now_msk, run)
         if scheduled:
-            await PayoutRepository(self.pool).finish(GUILD_ID, week_start_msk.date())
+            await PayoutRepository(self.pool).finish(settings.guild_id, week_start_msk.date())
         return "Выплаты отправлены."
 
     async def _collect_payouts(self, start_utc: datetime, end_utc: datetime) -> List[Dict]:
         assert self.pool
-        combined = await PayoutRepository(self.pool).totals(start_utc, end_utc, ATTENDANCE_REWARD)
+        combined = await PayoutRepository(self.pool).totals(
+            start_utc, end_utc, Decimal(option("attendance_reward", "40000"))
+        )
 
-        guild = self.bot.get_guild(GUILD_ID)
+        guild = self.bot.get_guild(settings.guild_id)
         payouts: List[Dict] = []
         for uid, amount in combined.items():
             member = guild.get_member(uid) if guild else None
@@ -196,8 +199,8 @@ class Payouts(commands.Cog):
     async def _send_results(
         self, payouts: List[Dict], week_end_msk: datetime, now_msk: datetime, run=None
     ):
-        embed_channel = self.bot.get_channel(PAYOUT_CHANNEL_ID)
-        file_channel = self.bot.get_channel(PAYOUT_FILE_CHANNEL_ID)
+        embed_channel = self.bot.get_channel(settings.payout_channel_id)
+        file_channel = self.bot.get_channel(settings.payout_file_channel_id)
         if not isinstance(embed_channel, discord.TextChannel) or not isinstance(
             file_channel, discord.TextChannel
         ):
@@ -205,7 +208,10 @@ class Payouts(commands.Cog):
 
         # Файл
         lines = ["staticId;amount;comment"]
-        lines.extend(f"{p['static_id']};{int(round(p['amount']))};{COMMENT}" for p in payouts)
+        lines.extend(
+            f"{p['static_id']};{int(round(p['amount']))};{option('payout_comment', COMMENT)}"
+            for p in payouts
+        )
         file_buf = BytesIO("\n".join(lines).encode("utf-8"))
         file = discord.File(fp=file_buf, filename="weekly_payouts.txt")
 
@@ -225,17 +231,41 @@ class Payouts(commands.Cog):
             color=discord.Color.from_rgb(255, 255, 255),
             timestamp=week_end_msk.astimezone(timezone.utc),
         )
-        embed.set_image(url=random.choice(IMAGE_POOL))
+        embed.set_image(url=random.choice(images("payout_images", IMAGE_POOL)))
+        marker = f"Расчёт Serenity: {settings.guild_id}:{run['week_start']}" if run else None
+        if marker:
+            embed.set_footer(text=marker)
 
         repo = PayoutRepository(self.pool)
         if run is None or not run["embed_message_id"]:
-            message = await embed_channel.send(embed=embed)
+            message = None
             if run:
-                await repo.message_sent(GUILD_ID, run["week_start"], "embed", message.id)
+                async for candidate in embed_channel.history(limit=None, after=run["created_at"]):
+                    if (
+                        candidate.author.id == self.bot.user.id
+                        and candidate.embeds
+                        and candidate.embeds[0].footer.text == marker
+                    ):
+                        message = candidate
+                        break
+            if message is None:
+                message = await embed_channel.send(embed=embed)
+            if run:
+                await repo.message_sent(settings.guild_id, run["week_start"], "embed", message.id)
         if run is None or not run["file_message_id"]:
-            message = await file_channel.send(files=[file], content="Текстовый файл с выплатами")
+            message = None
             if run:
-                await repo.message_sent(GUILD_ID, run["week_start"], "file", message.id)
+                async for candidate in file_channel.history(limit=None, after=run["created_at"]):
+                    if candidate.author.id == self.bot.user.id and candidate.content == marker:
+                        message = candidate
+                        break
+            if message is None:
+                message = await file_channel.send(
+                    files=[file], content=marker or "Текстовый файл с выплатами"
+                )
+            if run:
+                await repo.message_sent(settings.guild_id, run["week_start"], "file", message.id)
+        file.close()
 
 
 async def setup(bot: commands.Bot):

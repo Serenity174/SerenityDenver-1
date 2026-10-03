@@ -31,16 +31,14 @@ from serenity.repositories.giveaways import (
     set_guild_emoji,
 )
 from serenity.repositories.jobs import JobRepository
+from serenity.services.access import high_staff
 from serenity.ui.base import View
 
 settings = get_settings()
 
 # === НАСТРОЙКИ ===
-GUILD_ID = settings.guild_id
-ROLE_TAG_ID = settings.family_role_id  # тэгнем эту роль над эмбедой
 
 # Postgres (public.give, public.guild_settings)
-DATABASE_URL = settings.database_url
 
 
 # === УТИЛИТЫ ===
@@ -179,6 +177,8 @@ class JoinView(View):
         )
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if not await super().interaction_check(interaction):
+            return False
         cid = str(interaction.data.get("custom_id", "")) if interaction.data else ""
         logging.getLogger(__name__).info(
             str(f"[giveaways] interaction_check called, custom_id={cid}")
@@ -361,7 +361,7 @@ class Giveaways(commands.Cog):
         победителей="Количество победителей (1–50)",
         приз="Что разыгрывается",
     )
-    @app_commands.checks.has_role(get_settings().high_staff_role_id)
+    @high_staff()
     async def cmd_start(
         self,
         itx: discord.Interaction,
@@ -401,7 +401,7 @@ class Giveaways(commands.Cog):
 
         # Отправляем основное сообщение о розыгрыше в канал
         msg = await itx.channel.send(
-            content=f"<@&{ROLE_TAG_ID}>",
+            content=f"<@&{settings.family_role_id}>",
             embed=emb_running(g, color, emoji, itx.user, participants, display_id=gid),
             view=view,
             allowed_mentions=discord.AllowedMentions(roles=True, users=False, everyone=False),
@@ -418,7 +418,7 @@ class Giveaways(commands.Cog):
 
     @app_commands.command(name="завершить", description="Завершить розыгрыш по ID")
     @app_commands.describe(id="ID розыгрыша")
-    @app_commands.checks.has_role(get_settings().high_staff_role_id)
+    @high_staff()
     async def cmd_end(self, itx: discord.Interaction, id: int):
         # сначала скрыто подтверждаем interaction
         await itx.response.defer(ephemeral=True, thinking=True)
@@ -434,7 +434,7 @@ class Giveaways(commands.Cog):
 
     @app_commands.command(name="переролл", description="Перероллить победителей по ID")
     @app_commands.describe(id="ID розыгрыша (уже завершённого)")
-    @app_commands.checks.has_role(get_settings().high_staff_role_id)
+    @high_staff()
     async def cmd_reroll(self, itx: discord.Interaction, id: int):
         # сразу скрыто подтверждаем interaction, чтобы не получить Unknown interaction
         await itx.response.defer(ephemeral=True, thinking=True)
@@ -483,7 +483,7 @@ class Giveaways(commands.Cog):
 
     @settings.command(name="изменить", description="Изменить цвет эмбеда или эмодзи кнопки участия")
     @app_commands.describe(цвет_hex="HEX без #, напр. FFCC00", эмодзи="Эмодзи кнопки участия")
-    @app_commands.checks.has_role(get_settings().high_staff_role_id)
+    @high_staff()
     async def cmd_settings_set(
         self, itx: discord.Interaction, цвет_hex: Optional[str] = None, эмодзи: Optional[str] = None
     ):
@@ -505,7 +505,7 @@ class Giveaways(commands.Cog):
 
     async def cog_load(self):
         logging.getLogger(__name__).info(str("[giveaways] cog_load called"))
-        guild_obj = discord.Object(id=GUILD_ID)
+        guild_obj = discord.Object(id=settings.guild_id)
 
         # регистрируем команды на конкретную гильдию
         self.bot.tree.add_command(self.cmd_start, guild=guild_obj)
@@ -517,8 +517,8 @@ class Giveaways(commands.Cog):
         # при загрузке — восстановим только персистентные вьюхи
         # просроченные гивэвеи обработает _tick через 15 сек (избегаем rate limit)
         try:
-            _, emoji = await get_guild_settings(GUILD_ID)
-            running = await pg_list_running(GUILD_ID)
+            _, emoji = await get_guild_settings(settings.guild_id)
+            running = await pg_list_running(settings.guild_id)
             logging.getLogger(__name__).info(
                 str(f"[giveaways] running giveaways on load: {[g.id for g in running]}")
             )

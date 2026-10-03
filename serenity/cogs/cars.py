@@ -9,14 +9,11 @@ from discord.ext import commands
 
 from serenity.config import get_settings
 from serenity.repositories.cars import CarsRepository
+from serenity.services.access import high_staff
 from serenity.ui.base import Modal, View
 
 settings = get_settings()
 
-GUILD_ID = settings.guild_id
-ALLOWED_ROLE_IDS = [settings.high_staff_role_id]
-DEFAULT_CATALOG_CHANNEL_ID = settings.car_catalog_channel_id
-DATABASE_URL = settings.database_url
 
 FAMILY = "family"
 CARGO = "cargo"
@@ -485,8 +482,8 @@ class CarsCog(commands.Cog):
 
     async def cog_load(self):
         await self.repo.init()
-        self.bot.tree.add_command(self.cars_panel, guild=discord.Object(id=GUILD_ID))
-        self.bot.tree.add_command(self.cars_refresh, guild=discord.Object(id=GUILD_ID))
+        self.bot.tree.add_command(self.cars_panel, guild=discord.Object(id=settings.guild_id))
+        self.bot.tree.add_command(self.cars_refresh, guild=discord.Object(id=settings.guild_id))
 
     def _guild_lock(self, guild_id: int) -> asyncio.Lock:
         lock = self._guild_refresh_locks.get(guild_id)
@@ -519,7 +516,7 @@ class CarsCog(commands.Cog):
     async def refresh_catalog_messages(self, guild: discord.Guild, category: CatalogType) -> int:
         lock = self._guild_lock(guild.id)
         async with lock:
-            await self.repo.ensure_guild_settings(guild.id, DEFAULT_CATALOG_CHANNEL_ID)
+            await self.repo.ensure_guild_settings(guild.id, settings.car_catalog_channel_id)
             channel_id = await self.repo.get_catalog_channel_id(guild.id)
             if channel_id is None:
                 raise RuntimeError("Не задан канал каталога.")
@@ -591,7 +588,7 @@ class CarsCog(commands.Cog):
             return total_pages
 
     @app_commands.command(name="cars_panel", description="Панель управления автокаталогом")
-    @app_commands.checks.has_any_role(*ALLOWED_ROLE_IDS)
+    @high_staff()
     async def cars_panel(self, interaction: discord.Interaction):
         if interaction.guild is None:
             await interaction.response.send_message(
@@ -599,7 +596,7 @@ class CarsCog(commands.Cog):
             )
             return
 
-        await self.repo.ensure_guild_settings(interaction.guild.id, DEFAULT_CATALOG_CHANNEL_ID)
+        await self.repo.ensure_guild_settings(interaction.guild.id, settings.car_catalog_channel_id)
         view = CarsPanelView(self)
         await interaction.response.send_message(
             "Панель управления автопарком:",
@@ -608,7 +605,7 @@ class CarsCog(commands.Cog):
         )
 
     @app_commands.command(name="cars_refresh", description="Обновить сообщения каталога")
-    @app_commands.checks.has_any_role(*ALLOWED_ROLE_IDS)
+    @high_staff()
     async def cars_refresh(self, interaction: discord.Interaction):
         if interaction.guild is None:
             await interaction.response.send_message(

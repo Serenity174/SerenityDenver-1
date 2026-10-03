@@ -9,9 +9,6 @@ from serenity.config import get_settings
 settings = get_settings()
 
 
-GUILD_ID = settings.guild_id
-
-
 class RoleParser(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -22,7 +19,7 @@ class RoleParser(commands.Cog):
     )
     @app_commands.describe(role="Роль, чьих участников нужно вывести")
     async def participants(self, interaction: discord.Interaction, role: discord.Role):
-        if interaction.guild is None or interaction.guild.id != GUILD_ID:
+        if interaction.guild is None or interaction.guild.id != settings.guild_id:
             await interaction.response.send_message(
                 "Команда доступна только на сервере Serenity.", ephemeral=True
             )
@@ -53,7 +50,7 @@ class RoleParser(commands.Cog):
             )
 
     async def cog_load(self):
-        guild = discord.Object(id=GUILD_ID)
+        guild = discord.Object(id=settings.guild_id)
         self.bot.tree.add_command(self.participants, guild=guild)
 
 

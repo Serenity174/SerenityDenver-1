@@ -9,6 +9,12 @@ from serenity.database import Database, set_database
 from serenity.ui.base import interaction_error, reply
 
 log = logging.getLogger(__name__)
+
+
+class FeatureDisabled(commands.CheckFailure):
+    pass
+
+
 EXTENSIONS = (
     "contracts",
     "report_db",
@@ -28,6 +34,7 @@ EXTENSIONS = (
     "role_parser",
     "embed_modal",
     "jobs",
+    "admin",
 )
 
 
@@ -35,6 +42,12 @@ class CommandTree(app_commands.CommandTree):
     async def interaction_check(self, interaction):
         if interaction.guild_id != self.client.settings.guild_id:
             await reply(interaction, "Команды доступны только на сервере семьи.")
+            return False
+        from serenity.services.settings import feature_check
+
+        if interaction.command and not await feature_check(
+            interaction, interaction.command.callback.__module__
+        ):
             return False
         return True
 
@@ -61,6 +74,15 @@ class SerenityBot(commands.Bot):
         )
         self.background_tasks = set()
         self._closing = False
+        self.add_check(self._feature_command_check)
+
+    async def _feature_command_check(self, ctx):
+        from serenity.services.settings import enabled, feature_for
+
+        feature = feature_for(ctx.command.callback.__module__)
+        if feature and not enabled(feature):
+            raise FeatureDisabled("Эта возможность отключена администратором.")
+        return True
 
     def spawn(self, coroutine, *, name):
         task = asyncio.create_task(coroutine, name=name)
@@ -83,6 +105,14 @@ class SerenityBot(commands.Bot):
         await self.database.open()
         await self.database.acquire_bot_lease(self.settings.guild_id)
         set_database(self.database)
+        from serenity.services.settings import LiveSettings, set_live
+        from serenity.services.settings_defaults import defaults
+
+        self.live_settings = LiveSettings(
+            self.database.pool, self.settings, defaults(self.settings)
+        )
+        await self.live_settings.load()
+        set_live(self.live_settings)
         for extension in EXTENSIONS:
             await self.load_extension(f"serenity.cogs.{extension}")
             log.info("Loaded extension %s", extension)
@@ -112,6 +142,9 @@ class SerenityBot(commands.Bot):
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.CommandNotFound):
             return
+        if isinstance(error, FeatureDisabled):
+            await ctx.send(str(error))
+            return
         if isinstance(error, commands.CheckFailure):
             await ctx.send("Нет прав для этой команды.")
             return
@@ -136,3 +169,6 @@ class SerenityBot(commands.Bot):
         finally:
             await self.database.close()
             set_database(None)
+            from serenity.services.settings import set_live
+
+            set_live(None)

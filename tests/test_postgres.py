@@ -38,6 +38,7 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
         await self.db.pool.execute("""TRUNCATE public.bot_state, public.birthdays, public.requests,
             public.jobs, public.contract_signups, public.attendance_events, public.contracts,
             public.contract_users, public.reports, public.give, public.payout_runs,
+            public.admin_settings, public.settings_history,
             public.contract_meta RESTART IDENTITY CASCADE""")
         set_database(self.db)
 
@@ -70,6 +71,70 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
             )
         finally:
             await other.close()
+
+    async def test_admin_settings_persist_history_and_reject_stale_edits(self):
+        from serenity.repositories.settings import SettingsRepository
+
+        repo = SettingsRepository(self.db.pool)
+        initial = {"contract_slots": 5, "prices": {"Железо": "61"}}
+        self.assertEqual(await repo.seed(1, initial), initial)
+        await repo.save(1, "contract_slots", 8, 99, 5)
+        self.assertEqual((await repo.seed(1, initial))["contract_slots"], 8)
+        with self.assertRaises(ValueError):
+            await repo.save(1, "contract_slots", 10, 100, 5)
+        history = await repo.history(1)
+        self.assertEqual(len(history), 1)
+        self.assertEqual(
+            (history[0]["old_value"], history[0]["new_value"], history[0]["actor_id"]), (5, 8, 99)
+        )
+
+    async def test_report_and_publication_job_are_saved_once(self):
+        repo = ReportRepository(self.db.pool)
+
+        async def create():
+            return await repo.create(
+                interaction_id=777,
+                nickname="Test",
+                static_id=5,
+                category="Железо",
+                quantity=1,
+                total=Decimal("61"),
+                proof="https://example.com/proof",
+                user_id=5,
+                username="test",
+                publication={"channel_id": 100, "embed": {"title": "Отчёт"}},
+            )
+
+        values = await asyncio.gather(*(create() for _ in range(5)))
+        record_id = next(value for value in values if value is not None)
+        jobs = await self.db.pool.fetch(
+            "SELECT payload FROM public.jobs WHERE kind='report_publication'"
+        )
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(jobs[0]["payload"]["report_id"], record_id)
+        self.assertEqual(jobs[0]["payload"]["embed"]["footer"]["text"], f"ID записи: {record_id}")
+
+    async def test_report_is_rolled_back_if_publication_cannot_be_saved(self):
+        repo = ReportRepository(self.db.pool)
+        with self.assertRaises(TypeError):
+            await repo.create(
+                interaction_id=778,
+                nickname="Test",
+                static_id=5,
+                category="Железо",
+                quantity=1,
+                total=Decimal("61"),
+                proof="https://example.com/proof",
+                user_id=5,
+                username="test",
+                publication={"embed": None},
+            )
+        self.assertEqual(
+            await self.db.pool.fetchval(
+                "SELECT count(*) FROM public.reports WHERE interaction_id=778"
+            ),
+            0,
+        )
 
     async def test_only_one_bot_holds_guild_lease(self):
         await self.db.acquire_bot_lease(987654)

@@ -2,7 +2,6 @@ import io
 import random
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from zoneinfo import ZoneInfo
 
 import aiohttp
 import discord
@@ -12,13 +11,12 @@ from discord.ext import commands
 from serenity.cogs.contracts import ContractOpenView
 from serenity.config import get_settings
 from serenity.repositories.jobs import JobRepository
+from serenity.services.contract_rules import active_slots
+from serenity.services.settings import enabled, images, option
+from serenity.services.settings import timezone as configured_timezone
 
 settings = get_settings()
 
-ROLE_ID = settings.high_staff_role_id
-CHANNEL_ID = settings.news_channel_id  # Канал для публикации
-GUILD_ID = settings.guild_id  # Твой сервер
-MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 REMINDER_TEXT = (
     f"{settings.reminder_emoji}Через 10 минут сбор на семейном доме на контракты! Не забудь!"
 )
@@ -193,7 +191,7 @@ class News(commands.Cog):
     @app_commands.command(name="сбор", description="Создать сбор: укажи время")
     @app_commands.describe(time="Время сбора (например 22:30)")
     async def sbor(self, interaction: discord.Interaction, time: str):
-        if ROLE_ID not in [r.id for r in interaction.user.roles]:
+        if settings.high_staff_role_id not in [r.id for r in interaction.user.roles]:
             await interaction.response.send_message(
                 "У вас нет прав для запуска сбора.", ephemeral=True
             )
@@ -204,12 +202,22 @@ class News(commands.Cog):
             await interaction.response.send_message("Укажите время: /сбор <время>.", ephemeral=True)
             return
 
+        try:
+            hour, minute = map(int, time_value.split(":"))
+            if not (0 <= hour < 24 and 0 <= minute < 60):
+                raise ValueError
+        except ValueError:
+            await interaction.response.send_message(
+                "Укажите время в формате ЧЧ:ММ, например 22:30.", ephemeral=True
+            )
+            return
+
         await interaction.response.defer(ephemeral=True)
 
-        image = random.choice(IMAGE_URLS)
+        image = random.choice(images("news_images", IMAGE_URLS))
         image_file = await self._download_image(image)
         embed = discord.Embed(
-            title=f"Сбор из 5 человек для выполнения контракта к {time_value} по московскому времени.",
+            title=f"Сбор из {active_slots()} человек для выполнения контракта к {time_value} ({configured_timezone().key}).",
             description=(
                 "Те кто явятся жмут на плюс.\n"
                 "Приоритет всегда у меньших рангов и у тех, кто за неделю меньше всего был на контрактах!"
@@ -221,7 +229,7 @@ class News(commands.Cog):
         else:
             embed.set_image(url=image)
 
-        channel = interaction.client.get_channel(CHANNEL_ID)
+        channel = interaction.client.get_channel(settings.news_channel_id)
         if channel is None:
             await interaction.followup.send("Канал для сборов не найден.", ephemeral=True)
             return
@@ -241,6 +249,8 @@ class News(commands.Cog):
         contract_created = False
         contract_id: Optional[int] = None
         contracts_cog = interaction.client.get_cog("ContractsCog")
+        if not enabled("contracts"):
+            contracts_cog = None
         if contracts_cog is not None:
             await contracts_cog.db.connect()
             await contracts_cog.db.upsert_user(
@@ -267,19 +277,24 @@ class News(commands.Cog):
         if contract_created and contract_id is not None:
             try:
                 hours_str, minutes_str = time_value.split(":")
-                event_time = datetime.now(MOSCOW_TZ).replace(
+                event_time = datetime.now(configured_timezone()).replace(
                     hour=int(hours_str),
                     minute=int(minutes_str),
                     second=0,
                     microsecond=0,
                 )
-                if event_time <= datetime.now(MOSCOW_TZ):
+                if event_time <= datetime.now(configured_timezone()):
                     event_time += timedelta(days=1)
-                remind_at = event_time - timedelta(minutes=10)
+                remind_at = event_time - timedelta(minutes=option("reminder_minutes", 10))
                 await JobRepository().schedule(
                     "contract_reminder",
                     str(contract_id),
-                    {"contract_id": contract_id, "content": REMINDER_TEXT},
+                    {
+                        "contract_id": contract_id,
+                        "content": option("reminder_text", REMINDER_TEXT).replace(
+                            "{minutes}", str(option("reminder_minutes", 10))
+                        ),
+                    },
                     remind_at,
                     event_time,
                 )
@@ -288,13 +303,13 @@ class News(commands.Cog):
 
         status = "Сбор опубликован!"
         if contract_created:
-            status += " Создана карточка заявки в contracts."
+            status += " Создана карточка контракта."
         else:
-            status += " (contracts не созданы: cog не найден)."
+            status += " (модуль контрактов недоступен)."
         await interaction.followup.send(status, ephemeral=True)
 
     async def cog_load(self):
-        guild = discord.Object(id=GUILD_ID)
+        guild = discord.Object(id=settings.guild_id)
         self.bot.tree.add_command(self.sbor, guild=guild)
 
 

@@ -2,7 +2,8 @@ from typing import List, Optional
 
 import asyncpg
 
-from serenity.services.contract_rules import HIGH_STAFF_ROLE_ID, MAX_ACTIVE_SLOTS, ROLE_PRIORITY
+from serenity.config import get_settings
+from serenity.services.contract_rules import active_slots, role_priority
 
 
 class ContractDB:
@@ -128,7 +129,7 @@ class ContractDB:
                     ON CONFLICT (discord_id) DO NOTHING;
                     """,
                     host_id,
-                    ROLE_PRIORITY.get(HIGH_STAFF_ROLE_ID, 999),
+                    role_priority().get(get_settings().high_staff_role_id, 999),
                 )
                 await conn.execute(
                     """
@@ -185,7 +186,7 @@ class ContractDB:
                     SELECT COUNT(*) FROM updated;
                     """,
                     contract_id,
-                    MAX_ACTIVE_SLOTS,
+                    active_slots(),
                     marker_id,
                 )
                 return int(updated_count or 0)

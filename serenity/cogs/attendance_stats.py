@@ -8,13 +8,12 @@ from discord import app_commands, ui
 from discord.ext import commands, tasks
 
 from serenity.config import get_settings
+from serenity.services.access import high_staff
+from serenity.services.settings import timezone as configured_timezone
 from serenity.ui.base import View
 
 settings = get_settings()
 
-GUILD_ID = settings.guild_id
-HIGH_STAFF_ROLE_ID = settings.high_staff_role_id
-MSK = timezone(timedelta(hours=3))
 logger = logging.getLogger(__name__)
 
 
@@ -38,7 +37,7 @@ class RefreshView(View):
         custom_id="attendance_refresh",
     )
     async def refresh(self, interaction: discord.Interaction, button: ui.Button):
-        if not any(r.id == HIGH_STAFF_ROLE_ID for r in interaction.user.roles):
+        if not any(r.id == settings.high_staff_role_id for r in interaction.user.roles):
             return await interaction.response.send_message("⚠️ Нет доступа.", ephemeral=True)
         await interaction.response.defer(ephemeral=True)
         await self.cog.refresh_and_edit_message()
@@ -57,7 +56,7 @@ class AttendanceStatsCog(commands.Cog):
     async def cog_load(self):
         self.pool = self.bot.database.pool
         await self._load_message_meta()
-        guild = discord.Object(id=GUILD_ID)
+        guild = discord.Object(id=settings.guild_id)
         self.bot.tree.add_command(self.active_command, guild=guild)
         # Keep refresh button alive across restarts
         self.bot.add_view(RefreshView(self))
@@ -115,14 +114,14 @@ class AttendanceStatsCog(commands.Cog):
     async def auto_refresh_error(self, error: Exception):
         logger.exception("attendance auto_refresh loop crashed", exc_info=error)
 
-    @app_commands.command(name="актив", description="Показать явку за текущую неделю (Пн-Пн, МСК)")
-    @app_commands.checks.has_role(HIGH_STAFF_ROLE_ID)
+    @app_commands.command(name="актив", description="Показать явку за текущую неделю (Пн-Пн)")
+    @high_staff()
     async def active_command(self, interaction: discord.Interaction):
         await interaction.response.defer(thinking=True, ephemeral=False)
         embed = await self._build_embed()
         view = RefreshView(self)
         msg = await interaction.followup.send(embed=embed, view=view)
-        start_msk, _, _ = week_bounds_msk(datetime.now(MSK))
+        start_msk, _, _ = week_bounds_msk(datetime.now(configured_timezone()))
         await self._set_meta("message_id", str(msg.id))
         await self._set_meta("channel_id", str(msg.channel.id))
         await self._set_meta("week_start", start_msk.date().isoformat())
@@ -151,7 +150,7 @@ class AttendanceStatsCog(commands.Cog):
                 extra={"channel_id": self.message_info["channel_id"]},
             )
             return
-        now = datetime.now(MSK)
+        now = datetime.now(configured_timezone())
         start_msk, _, _ = week_bounds_msk(now)
         current_week = start_msk.date().isoformat()
 
@@ -215,7 +214,7 @@ class AttendanceStatsCog(commands.Cog):
             )
 
     async def _build_embed(self) -> discord.Embed:
-        now = datetime.now(MSK)
+        now = datetime.now(configured_timezone())
         start_msk, end_msk, week_date = week_bounds_msk(now)
         start_utc = start_msk.astimezone(timezone.utc)
         end_utc = end_msk.astimezone(timezone.utc)
@@ -274,7 +273,7 @@ class AttendanceStatsCog(commands.Cog):
                     week_date,
                 )
 
-        guild = self.bot.get_guild(GUILD_ID)
+        guild = self.bot.get_guild(settings.guild_id)
         data = []
         for r in rows:
             uid = int(r["user_id"])

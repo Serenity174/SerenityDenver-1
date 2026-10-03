@@ -160,7 +160,7 @@ def load_settings(
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """All modules share the same immutable settings instance."""
+    """Shared boot settings; validated live overrides are applied by LiveSettings."""
     return load_settings()
 
 

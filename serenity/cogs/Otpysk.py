@@ -4,6 +4,7 @@ from discord.ext import commands
 
 from serenity.config import get_settings
 from serenity.repositories.requests import RequestRepository
+from serenity.services.access import high_staff
 from serenity.ui.base import Modal, View
 
 settings = get_settings()
@@ -100,17 +101,13 @@ class Otpysk(commands.Cog):
         self.bot.tree.add_command(self.otpysk, guild=discord.Object(id=settings.guild_id))
 
     @app_commands.command(name="отпуск", description="Опубликовать форму отпуска")
-    @app_commands.checks.has_role(settings.high_staff_role_id)
+    @high_staff()
     async def otpysk(self, interaction):
-        channel = self.bot.get_channel(settings.vacation_channel_id)
-        await channel.send(
-            embed=discord.Embed(
-                title="Оформление отпуска",
-                description="Укажите период и причину. По возвращении снимите роль кнопкой ниже.",
-            ),
-            view=VacationButtons(),
-        )
-        await interaction.response.send_message("Форма отправлена.", ephemeral=True)
+        from serenity.services.panels import publish_panel
+
+        await interaction.response.defer(ephemeral=True)
+        await publish_panel(self.bot, "vacation")
+        await interaction.followup.send("Панель обновлена в настроенном канале.", ephemeral=True)
 
 
 async def setup(bot):

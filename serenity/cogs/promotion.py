@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from serenity.config import get_settings
-from serenity.repositories.state import StateRepository
+from serenity.services.access import high_staff
 from serenity.services.workflows import promotion_target, submit_request
 from serenity.ui.base import Modal, View
 
@@ -87,25 +87,13 @@ class Promotion(commands.Cog):
         self.bot.tree.add_command(self.promotion, guild=discord.Object(id=settings.guild_id))
 
     @app_commands.command(name="повышение", description="Отправить форму на повышение")
-    @app_commands.checks.has_role(settings.high_staff_role_id)
+    @high_staff()
     async def promotion(self, interaction):
-        channel = self.bot.get_channel(settings.promotion_channel_id)
-        state = StateRepository()
-        message_id = await state.get(settings.guild_id, "panels", "promotion")
-        embed = discord.Embed(
-            title="Подача отчёта на повышение",
-            description="Проверьте выполнение условий и приложите доказательства.",
-        )
-        if message_id:
-            try:
-                message = await channel.fetch_message(message_id)
-                await message.edit(embed=embed, view=PromotionView())
-                return await interaction.response.send_message("Форма обновлена.", ephemeral=True)
-            except discord.NotFound:
-                pass
-        message = await channel.send(embed=embed, view=PromotionView())
-        await state.put(settings.guild_id, "panels", "promotion", message.id)
-        await interaction.response.send_message("Форма отправлена.", ephemeral=True)
+        from serenity.services.panels import publish_panel
+
+        await interaction.response.defer(ephemeral=True)
+        await publish_panel(self.bot, "promotion")
+        await interaction.followup.send("Панель обновлена в настроенном канале.", ephemeral=True)
 
 
 async def setup(bot):

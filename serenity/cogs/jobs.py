@@ -41,8 +41,26 @@ class Jobs(commands.Cog):
 
     async def dispatch(self, row):
         payload = row["payload"]
-        if row["kind"] == "contract_reminder":
-            from serenity.services.contract_rules import MAX_ACTIVE_SLOTS
+        if row["kind"] == "report_publication":
+            report = await self.bot.database.pool.fetchrow(
+                "SELECT created_at FROM public.reports WHERE id=$1", payload["report_id"]
+            )
+            if report is None:
+                return
+            channel = self.bot.get_channel(payload["channel_id"]) or await self.bot.fetch_channel(
+                payload["channel_id"]
+            )
+            marker = f"ID записи: {payload['report_id']}"
+            async for message in channel.history(limit=None, after=report["created_at"]):
+                if (
+                    message.author.id == self.bot.user.id
+                    and message.embeds
+                    and message.embeds[0].footer.text == marker
+                ):
+                    return
+            await channel.send(embed=discord.Embed.from_dict(payload["embed"]))
+        elif row["kind"] == "contract_reminder":
+            from serenity.services.contract_rules import active_slots
 
             cog = self.bot.get_cog("ContractsCog")
             contract = await self.bot.database.pool.fetchrow(
@@ -52,7 +70,7 @@ class Jobs(commands.Cog):
                 return
             signups = await cog.db.fetch_signups(contract["id"], False)
             ids = list(dict.fromkeys([contract["host_id"]] + [r["user_id"] for r in signups]))[
-                :MAX_ACTIVE_SLOTS
+                : active_slots()
             ]
             for user_id in ids:
                 await self.repo.schedule(

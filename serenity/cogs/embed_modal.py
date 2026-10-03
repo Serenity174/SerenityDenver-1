@@ -3,12 +3,10 @@ from discord import app_commands
 from discord.ext import commands
 
 from serenity.config import get_settings
+from serenity.services.access import staff
 from serenity.ui.base import Modal, View
 
 settings = get_settings()
-
-GUILD_ID = settings.guild_id
-ALLOWED_ROLES = settings.staff_role_ids
 
 
 class EmbedModal(Modal, title="Создание эмбеда"):
@@ -78,7 +76,7 @@ class EmbedCommand(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name="эмбед", description="Создать кастомный эмбед")
-    @app_commands.checks.has_any_role(*ALLOWED_ROLES)
+    @staff()
     async def эмбед(self, interaction: discord.Interaction):
         view = EmbedButtonView()
         await interaction.response.send_message(
@@ -93,7 +91,7 @@ class EmbedCommand(commands.Cog):
             )
 
     async def cog_load(self):
-        self.bot.tree.add_command(self.эмбед, guild=discord.Object(id=GUILD_ID))
+        self.bot.tree.add_command(self.эмбед, guild=discord.Object(id=settings.guild_id))
 
 
 async def setup(bot):

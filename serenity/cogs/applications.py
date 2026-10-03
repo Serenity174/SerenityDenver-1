@@ -97,14 +97,10 @@ class Applications(commands.Cog):
     async def new(self, ctx):
         if not can_review(ctx.author):
             return await ctx.send("Нет прав для публикации формы.")
-        channel = self.bot.get_channel(settings.submit_channel_id)
-        embed = discord.Embed(
-            title="Заявка на вступление в семью Serenity",
-            description="Ответьте на вопросы и ожидайте рассмотрения старшим составом.",
-            color=discord.Color.from_rgb(255, 255, 255),
-        )
-        embed.set_image(url="https://i.ibb.co/nNTmPtQK/image.png")
-        await channel.send(embed=embed, view=ApplicationView())
+        from serenity.services.panels import publish_panel
+
+        await publish_panel(self.bot, "application")
+        await ctx.send("Панель вступления обновлена.", delete_after=10)
 
 
 async def setup(bot):
