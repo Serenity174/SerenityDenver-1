@@ -69,7 +69,7 @@ class CommandSyncTests(unittest.IsolatedAsyncioTestCase):
         )
         ctx = SimpleNamespace(guild=guild, author=author, send=AsyncMock())
         self.bot.is_owner = AsyncMock(return_value=False)
-        await self.bot.sync_command.callback(self.bot, ctx)
+        await self.bot.get_command("sync").callback(ctx)
         self.bot.tree.sync.assert_awaited_once()
         self.bot.is_owner.assert_not_awaited()
 
@@ -83,7 +83,7 @@ class CommandSyncTests(unittest.IsolatedAsyncioTestCase):
             send=AsyncMock(),
         )
         self.bot.is_owner = AsyncMock(return_value=False)
-        await self.bot.sync_command.callback(self.bot, ctx)
+        await self.bot.get_command("sync").callback(ctx)
         self.bot.tree.sync.assert_not_awaited()
 
     async def test_mentions_work_alongside_configured_prefix(self):
@@ -91,3 +91,23 @@ class CommandSyncTests(unittest.IsolatedAsyncioTestCase):
         prefixes = await self.bot.get_prefix(SimpleNamespace(content="<@123> sync"))
         self.assertIn("<@123> ", prefixes)
         self.assertIn(self.bot.settings.bot_command_prefix, prefixes)
+
+    async def test_prefix_command_is_registered_and_parsed_by_discord(self):
+        self.bot._connection.user = SimpleNamespace(id=123)
+        guild = SimpleNamespace(id=self.bot.settings.guild_id)
+        author = SimpleNamespace(
+            id=456, guild=guild, guild_permissions=SimpleNamespace(administrator=True), roles=[]
+        )
+        message = SimpleNamespace(
+            content=f"{self.bot.settings.bot_command_prefix}sync",
+            author=author,
+            guild=guild,
+            channel=SimpleNamespace(),
+            _state=self.bot._connection,
+            attachments=[],
+        )
+        context = await self.bot.get_context(message)
+        self.assertIs(context.command, self.bot.get_command("sync"))
+        context.send = AsyncMock()
+        await context.command.invoke(context)
+        self.bot.tree.sync.assert_awaited_once()

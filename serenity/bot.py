@@ -76,6 +76,11 @@ class SerenityBot(commands.Bot):
         self._closing = False
         self.add_check(self._feature_command_check)
 
+        async def sync(ctx):
+            await self.sync_command(ctx)
+
+        self.add_command(commands.Command(sync, name="sync"))
+
     async def _feature_command_check(self, ctx):
         from serenity.services.settings import enabled, feature_for
 
@@ -151,7 +156,6 @@ class SerenityBot(commands.Bot):
                 if attempt < 2:
                     await asyncio.sleep(30)
 
-    @commands.command(name="sync")
     async def sync_command(self, ctx):
         from serenity.services.access import can_manage
 
