@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from dotenv import dotenv_values
 
-from serenity.config import PROJECT_ROOT, ConfigurationError, load_settings
+from justice.config import PROJECT_ROOT, ConfigurationError, load_settings
 
 
 class SettingsTests(unittest.TestCase):
@@ -118,12 +118,12 @@ class SettingsTests(unittest.TestCase):
     def test_all_bot_modules_import_without_external_connections(self):
         settings = self.load()
         module_names = [
-            f"serenity.cogs.{path.stem}"
-            for path in (PROJECT_ROOT / "serenity/cogs").glob("*.py")
+            f"justice.cogs.{path.stem}"
+            for path in (PROJECT_ROOT / "justice/cogs").glob("*.py")
             if path.stem != "__init__"
         ]
         with (
-            patch("serenity.config.get_settings", return_value=settings),
+            patch("justice.config.get_settings", return_value=settings),
             patch("discord.ext.commands.Bot.run") as run,
             patch(
                 "socket.socket.connect", side_effect=AssertionError("Unexpected network connection")

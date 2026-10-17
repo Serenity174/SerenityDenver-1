@@ -3,6 +3,6 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 cached_message_id.json
-serenitypay.json
+justicepay.json
 .work/
 .ruff_cache/

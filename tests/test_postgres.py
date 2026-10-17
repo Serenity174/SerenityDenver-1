@@ -10,31 +10,31 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 from urllib.parse import urlsplit
 
-from serenity.config import get_settings
-from serenity.database import MIGRATIONS, Database, migrate, set_database
-from serenity.repositories.contracts import ContractDB
-from serenity.repositories.jobs import JobRepository
-from serenity.repositories.payouts import PayoutRepository
-from serenity.repositories.reports import ReportRepository
-from serenity.repositories.requests import RequestRepository
-from serenity.repositories.state import StateRepository
+from justice.config import get_settings
+from justice.database import MIGRATIONS, Database, migrate, set_database
+from justice.repositories.contracts import ContractDB
+from justice.repositories.jobs import JobRepository
+from justice.repositories.payouts import PayoutRepository
+from justice.repositories.reports import ReportRepository
+from justice.repositories.requests import RequestRepository
+from justice.repositories.state import StateRepository
 
 TEST_URL = os.environ.get("TEST_DATABASE_URL")
 
 
 @unittest.skipUnless(
-    TEST_URL, "Set TEST_DATABASE_URL to a dedicated serenity_test PostgreSQL database"
+    TEST_URL, "Set TEST_DATABASE_URL to a dedicated justice_test PostgreSQL database"
 )
 class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        if urlsplit(TEST_URL).path != "/serenity_test":
-            self.fail("TEST_DATABASE_URL must target the dedicated serenity_test database")
+        if urlsplit(TEST_URL).path != "/justice_test":
+            self.fail("TEST_DATABASE_URL must target the dedicated justice_test database")
         self.db = Database(TEST_URL)
         await self.db.open()
         # Never reset data in a working deployment, even if a URL is pasted by mistake.
-        if await self.db.pool.fetchval("SELECT current_database()") != "serenity_test":
+        if await self.db.pool.fetchval("SELECT current_database()") != "justice_test":
             await self.db.close()
-            self.fail("Integration tests require a database named serenity_test")
+            self.fail("Integration tests require a database named justice_test")
         await self.db.pool.execute("""TRUNCATE public.bot_state, public.birthdays, public.requests,
             public.jobs, public.contract_signups, public.attendance_events, public.contracts,
             public.contract_users, public.reports, public.give, public.payout_runs,
@@ -73,7 +73,7 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
             await other.close()
 
     async def test_admin_settings_persist_history_and_reject_stale_edits(self):
-        from serenity.repositories.settings import SettingsRepository
+        from justice.repositories.settings import SettingsRepository
 
         repo = SettingsRepository(self.db.pool)
         initial = {"contract_slots": 5, "prices": {"Железо": "61"}}
@@ -141,7 +141,7 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
         other = Database(TEST_URL)
         try:
             await other.open()
-            with self.assertRaisesRegex(RuntimeError, "Another Serenity"):
+            with self.assertRaisesRegex(RuntimeError, "Another Justice"):
                 await other.acquire_bot_lease(987654)
             await self.db.check_lease()
         finally:
@@ -219,7 +219,7 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(await repo.claim())
 
     async def test_giveaway_concurrent_entries_and_stable_winners(self):
-        from serenity.repositories.giveaways import (
+        from justice.repositories.giveaways import (
             pg_choose_winners,
             pg_create_give,
             pg_get_user_ids,
@@ -249,9 +249,9 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(run["completed_at"])
 
     async def test_all_extensions_start_and_share_one_pool(self):
-        from serenity.bot import EXTENSIONS, SerenityBot
+        from justice.bot import EXTENSIONS, JusticeBot
 
-        bot = SerenityBot(replace(get_settings(), database_url=TEST_URL, token="test-token"))
+        bot = JusticeBot(replace(get_settings(), database_url=TEST_URL, token="test-token"))
         await bot._async_setup_hook()
         try:
             await bot.setup_hook()
@@ -267,7 +267,7 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
     async def test_request_publication_adopts_message_after_interrupted_commit(self):
         import discord
 
-        from serenity.services.workflows import publish_request
+        from justice.services.workflows import publish_request
 
         repo = RequestRepository(self.db.pool)
         row, _ = await repo.create(1, 2, "bonus", {})
@@ -287,7 +287,7 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
     async def test_published_requests_show_history_for_same_user_and_kind(self):
         import discord
 
-        from serenity.services.workflows import publish_request
+        from justice.services.workflows import publish_request
 
         repo = RequestRepository(self.db.pool)
 
@@ -320,7 +320,7 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(await repo.previous(conn, {**dict(second), **overrides}), [])
 
     async def test_promotion_retry_after_discord_failure_keeps_original_target(self):
-        from serenity.services.workflows import resolve_request
+        from justice.services.workflows import resolve_request
 
         settings = get_settings()
         roles = [SimpleNamespace(id=uid) for uid in settings.rank_role_ids]
@@ -343,7 +343,7 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
         row, _ = await repo.create(
             settings.guild_id, 2, "promotion", {"target_role_id": roles[1].id}
         )
-        with patch("serenity.services.workflows.can_review", return_value=True):
+        with patch("justice.services.workflows.can_review", return_value=True):
             with self.assertRaises(RuntimeError):
                 await resolve_request(interaction, row["id"], True)
             self.assertEqual((await repo.get(row["id"]))["status"], "pending")
@@ -357,12 +357,12 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
             _, changed = await resolve_request(interaction, row["id"], True)
             self.assertFalse(changed)
             self.assertEqual(member.add_roles.await_count, 2)
-        with patch("serenity.services.workflows.can_review", return_value=False):
+        with patch("justice.services.workflows.can_review", return_value=False):
             with self.assertRaises(PermissionError):
                 await resolve_request(interaction, row["id"], False)
 
     async def test_signup_concurrent_views_respect_capacity(self):
-        from serenity.cogs.bronya import SignUpView
+        from justice.cogs.bronya import SignUpView
 
         users = {uid: SimpleNamespace(id=uid, mention=f"<@{uid}>") for uid in range(1, 8)}
         guild = SimpleNamespace(id=1, get_member=users.get)
@@ -386,8 +386,8 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(set(saved["participants"])), 3)
 
     async def test_voice_state_restores_owner_and_permissions(self):
-        from serenity.cogs.temp_voice import TempVoiceChannelInfo
-        from serenity.services.voice_state import load_channels, save_channel
+        from justice.cogs.temp_voice import TempVoiceChannelInfo
+        from justice.services.voice_state import load_channels, save_channel
 
         channel = SimpleNamespace(id=123, guild=SimpleNamespace(id=1))
         info = TempVoiceChannelInfo(owner_id=55, allowed_users={66}, blocked_users={77})

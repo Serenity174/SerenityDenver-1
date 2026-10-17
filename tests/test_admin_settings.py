@@ -5,12 +5,12 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from serenity.cogs.admin import EditSetting, Home, Images, Prices, SettingsList
-from serenity.config import get_settings
-from serenity.services.contract_rules import active_slots, role_priority
-from serenity.services.reporting import report_total
-from serenity.services.settings import LiveSettings, SettingSpec, enabled, set_live, validate
-from serenity.services.settings_defaults import defaults
+from justice.cogs.admin import EditSetting, Home, Images, Prices, SettingsList
+from justice.config import get_settings
+from justice.services.contract_rules import active_slots, role_priority
+from justice.services.reporting import report_total
+from justice.services.settings import LiveSettings, SettingSpec, enabled, set_live, validate
+from justice.services.settings_defaults import defaults
 
 
 class AdminSettingsTests(unittest.IsolatedAsyncioTestCase):
@@ -133,7 +133,7 @@ class AdminSettingsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(validate(SettingSpec("", "", "category"), 0), 0)
 
     async def test_expired_report_form_is_blocked_after_disabling_reports(self):
-        from serenity.cogs.report_db import DBReportModal
+        from justice.cogs.report_db import DBReportModal
 
         interaction = SimpleNamespace(
             guild_id=get_settings().guild_id,
@@ -148,18 +148,18 @@ class AdminSettingsTests(unittest.IsolatedAsyncioTestCase):
         interaction.response.send_message.assert_awaited_once()
 
     async def test_vacation_return_remains_available_when_new_vacations_are_disabled(self):
-        from serenity.services.settings import feature_check
+        from justice.services.settings import feature_check
 
         self.service.apply("enabled:Otpysk", False)
         interaction = SimpleNamespace(data={"custom_id": "vacation_return"})
-        self.assertTrue(await feature_check(interaction, "serenity.cogs.Otpysk"))
+        self.assertTrue(await feature_check(interaction, "justice.cogs.Otpysk"))
 
     async def test_report_delivery_recovers_message_after_interrupted_commit(self):
         from datetime import datetime, timezone
 
         import discord
 
-        from serenity.cogs.jobs import Jobs
+        from justice.cogs.jobs import Jobs
 
         embed = discord.Embed(title="Отчёт")
         embed.set_footer(text="ID записи: 12")
@@ -194,7 +194,7 @@ class AdminSettingsTests(unittest.IsolatedAsyncioTestCase):
         channel.send.assert_not_awaited()
 
     async def test_panel_reuses_existing_message_without_deleting_history(self):
-        from serenity.services.panels import publish_panel
+        from justice.services.panels import publish_panel
 
         message = SimpleNamespace(id=77, edit=AsyncMock())
         channel = SimpleNamespace(fetch_message=AsyncMock(return_value=message), send=AsyncMock())
@@ -212,7 +212,7 @@ class AdminSettingsTests(unittest.IsolatedAsyncioTestCase):
             ),
             put=AsyncMock(),
         )
-        with patch("serenity.services.panels.StateRepository", return_value=state):
+        with patch("justice.services.panels.StateRepository", return_value=state):
             self.assertIs(await publish_panel(bot, "reports"), message)
         message.edit.assert_awaited_once()
         channel.send.assert_not_awaited()

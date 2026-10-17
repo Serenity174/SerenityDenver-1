@@ -1,6 +1,6 @@
-# SerenityDenver
+# JusticeDenver
 
-Discord-бот семьи Serenity: контракты, явки, отчёты, расчёт выплат, заявки,
+Discord-бот семьи Justice: контракты, явки, отчёты, расчёт выплат, заявки,
 розыгрыши, дни рождения и временные голосовые комнаты. Python 3.10+,
 PostgreSQL; для Railway и CI выбран Python 3.12.
 
@@ -13,14 +13,14 @@ PostgreSQL; для Railway и CI выбран Python 3.12.
 
 ```sh
 python -m pip install -r requirements.txt
-python -m serenity.manage check-config
-python -m serenity.manage db-check
+python -m justice.manage check-config
+python -m justice.manage db-check
 python main.py
 ```
 
 `check-config` проверяет конфигурацию без сетевых подключений. `db-check`
 подключается к PostgreSQL **и применяет миграции**, как и обычный запуск.
-Отдельная команда миграций: `python -m serenity.manage migrate`.
+Отдельная команда миграций: `python -m justice.manage migrate`.
 
 При первом запуске ID каналов и ролей задаются в `.env`; списки — через запятую без повторений.
 `RANK_ROLE_IDS` упорядочен от младшего ранга к старшему. `STAFF_ROLE_IDS`
@@ -34,7 +34,7 @@ python main.py
 
 ## Деплой Railway
 
-1. Загрузите в GitHub все изменения, включая новые каталоги `serenity/`,
+1. Загрузите в GitHub все изменения, включая новые каталоги `justice/`,
    `migrations/`, `.env` и удаления старых файлов в корне.
 2. В сервисе бота сохраните существующие `TOKEN` и `DATABASE_URL`, указывающий
    на нужную PostgreSQL. Команда запуска в `railway.toml`: `python main.py`.
@@ -60,15 +60,15 @@ HTTP-сервер не запускается, поэтому HTTP healthcheck �
 
 | Каталог | Назначение |
 | --- | --- |
-| `serenity/cogs/` | Команды и события Discord |
-| `serenity/repositories/` | Запросы к PostgreSQL |
-| `serenity/services/` | Расчёты, обработка заявок, восстановление состояния |
-| `serenity/ui/` | Общие обработчики интерфейса и ошибок |
-| `serenity/config.py` | Типизированная конфигурация |
-| `serenity/database.py` | Общий пул соединений, миграции, блокировка экземпляра |
+| `justice/cogs/` | Команды и события Discord |
+| `justice/repositories/` | Запросы к PostgreSQL |
+| `justice/services/` | Расчёты, обработка заявок, восстановление состояния |
+| `justice/ui/` | Общие обработчики интерфейса и ошибок |
+| `justice/config.py` | Типизированная конфигурация |
+| `justice/database.py` | Общий пул соединений, миграции, блокировка экземпляра |
 | `migrations/` | Версионированные SQL-изменения |
 | `tests/` | Проверки конфигурации, логики и интеграции с БД |
-| `serenity/legacy/` | Неактивные прежние интеграции Google Sheets и Flask |
+| `justice/legacy/` | Неактивные прежние интеграции Google Sheets и Flask |
 
 Старые Google-модули автоматически не загружаются и не переносят таблицы Google
 в PostgreSQL. Активные функции работают через PostgreSQL. Настройки `GOOGLE_*`
@@ -109,13 +109,13 @@ HTTP-сервер не запускается, поэтому HTTP healthcheck �
 
 ```sh
 python -m pip install -r requirements-dev.txt
-ruff check serenity tests main.py
-ruff format --check serenity tests main.py
+ruff check justice tests main.py
+ruff format --check justice tests main.py
 python -m unittest discover -s tests -v
 ```
 
 Для интеграционных тестов задайте `TEST_DATABASE_URL` на отдельную БД с именем
-**`serenity_test`**. Тесты очищают её таблицы. Без этой переменной проверки БД
+**`justice_test`**. Тесты очищают её таблицы. Без этой переменной проверки БД
 пропускаются. GitHub Actions поднимает отдельную PostgreSQL 17 и выполняет
 весь набор автоматически. Discord в тестах не подключается.
 
@@ -132,7 +132,7 @@ lock-файлы следует вместе с проверками на под�
 Перед изменением схемы сохраните резервную копию PostgreSQL средствами хостинга
 или `pg_dump --format=custom`. Храните копию вне контейнера приложения.
 Проверяйте восстановление через `pg_restore` в отдельную пустую базу, затем
-выполняйте `python -m serenity.manage db-check` с её адресом.
+выполняйте `python -m justice.manage db-check` с её адресом.
 
 Для аварийного восстановления остановите бот, восстановите резервную копию,
 проверьте схему и подключение, затем запустите совместимую версию приложения.

@@ -5,13 +5,13 @@ from unittest.mock import AsyncMock, Mock, patch
 import discord
 from discord import app_commands
 
-from serenity.bot import SerenityBot
-from serenity.config import get_settings
+from justice.bot import JusticeBot
+from justice.config import get_settings
 
 
 class CommandSyncTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.bot = SerenityBot(get_settings())
+        self.bot = JusticeBot(get_settings())
         self.bot.tree.sync = AsyncMock(return_value=[SimpleNamespace(name="настройки")])
 
         async def callback(interaction):
@@ -46,7 +46,7 @@ class CommandSyncTests(unittest.IsolatedAsyncioTestCase):
     async def test_missing_guild_does_not_publish_commands(self):
         self.bot.wait_until_ready = AsyncMock()
         self.bot.get_guild = Mock(return_value=None)
-        with self.assertLogs("serenity.bot", level="ERROR"):
+        with self.assertLogs("justice.bot", level="ERROR"):
             await self.bot._sync_commands_on_ready()
         self.bot.tree.sync.assert_not_awaited()
 
@@ -56,8 +56,8 @@ class CommandSyncTests(unittest.IsolatedAsyncioTestCase):
         failure = discord.HTTPException(SimpleNamespace(status=503, reason="Unavailable"), "Retry")
         self.bot.tree.sync.side_effect = [failure, []]
         with (
-            patch("serenity.bot.asyncio.sleep", new_callable=AsyncMock),
-            self.assertLogs("serenity.bot", level="ERROR"),
+            patch("justice.bot.asyncio.sleep", new_callable=AsyncMock),
+            self.assertLogs("justice.bot", level="ERROR"),
         ):
             await self.bot._sync_commands_on_ready()
         self.assertEqual(self.bot.tree.sync.await_count, 2)

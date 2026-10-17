@@ -3,10 +3,10 @@ import unittest
 from decimal import Decimal
 from types import SimpleNamespace
 
-from serenity.cogs.birthday import parse_birthday
-from serenity.logging_setup import RedactingFormatter
-from serenity.services.reporting import report_total
-from serenity.services.workflows import promotion_target
+from justice.cogs.birthday import parse_birthday
+from justice.logging_setup import RedactingFormatter
+from justice.services.reporting import report_total
+from justice.services.workflows import promotion_target
 
 
 class LogicTests(unittest.TestCase):
