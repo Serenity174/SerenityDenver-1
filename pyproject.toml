@@ -1,5 +1,5 @@
 [project]
-name = "justice-denver"
+name = "justice-orlando"
 version = "0.2.0"
 description = "Justice Discord community bot"
 requires-python = ">=3.10"

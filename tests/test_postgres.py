@@ -80,6 +80,7 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
         }
         await repo.seed(1, initial)
         await self.db.pool.execute((MIGRATIONS / "005_justice_branding.sql").read_text("utf-8"))
+        await self.db.pool.execute((MIGRATIONS / "006_orlando_server.sql").read_text("utf-8"))
         saved = await repo.seed(1, {})
         expected = defaults(get_settings())
         for key in initial.keys() - {"support_role_id", "bonus_image", "contract_slots"}:
@@ -89,7 +90,7 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("bonus_image", saved)
         self.assertIn("/promo E-73118", saved["welcome_text"])
         self.assertIn("/promo E-73118", saved["bonus_text"])
-        self.assertEqual(len(await repo.history(1)), 10)
+        self.assertEqual(len(await repo.history(1)), 11)
 
     async def test_state_survives_new_connection(self):
         await StateRepository(self.db.pool).put(

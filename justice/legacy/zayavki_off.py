@@ -64,7 +64,7 @@ class Page2Modal(discord.ui.Modal, title="Заявка - Страница 2"):
 
 
 class Page3Modal(discord.ui.Modal, title="Заявка - Страница 3"):
-    server = discord.ui.TextInput(label="Любимый сервер", placeholder="Seattle")
+    server = discord.ui.TextInput(label="Любимый сервер", placeholder="Orlando")
     other = discord.ui.TextInput(label="Где ещё играли?", placeholder="GTA 5 RP")
 
     async def on_submit(self, interaction: discord.Interaction):
