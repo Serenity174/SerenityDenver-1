@@ -148,7 +148,7 @@ class CompleteAddFamilyView(View):
         self.owner_id = owner_id
         self.payload = payload
 
-    @discord.ui.button(label="Продолжить (шаг 2)", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Продолжить (шаг 2)", style=discord.ButtonStyle.secondary)
     async def continue_btn(self, interaction: discord.Interaction, _: discord.ui.Button):
         if interaction.user.id != self.owner_id:
             await interaction.response.send_message("Эта форма не для вас.", ephemeral=True)
@@ -272,7 +272,7 @@ class CompleteAddCargoView(View):
         self.owner_id = owner_id
         self.payload = payload
 
-    @discord.ui.button(label="Продолжить (шаг 2)", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Продолжить (шаг 2)", style=discord.ButtonStyle.secondary)
     async def continue_btn(self, interaction: discord.Interaction, _: discord.ui.Button):
         if interaction.user.id != self.owner_id:
             await interaction.response.send_message("Эта форма не для вас.", ephemeral=True)
@@ -331,7 +331,9 @@ class DeleteCarsView(View):
 
         self.prev_btn = discord.ui.Button(label="◀", style=discord.ButtonStyle.secondary, row=1)
         self.next_btn = discord.ui.Button(label="▶", style=discord.ButtonStyle.secondary, row=1)
-        self.close_btn = discord.ui.Button(label="Закрыть", style=discord.ButtonStyle.danger, row=1)
+        self.close_btn = discord.ui.Button(
+            label="Закрыть", style=discord.ButtonStyle.secondary, row=1
+        )
 
         self.prev_btn.callback = self._prev
         self.next_btn.callback = self._next
@@ -433,19 +435,19 @@ class CarsPanelView(View):
         super().__init__(timeout=180)
         self.cog = cog
 
-    @discord.ui.button(label="Добавить семейное авто", style=discord.ButtonStyle.success, row=0)
+    @discord.ui.button(label="Добавить семейное авто", style=discord.ButtonStyle.secondary, row=0)
     async def add_family(self, interaction: discord.Interaction, _: discord.ui.Button):
         await interaction.response.send_modal(AddFamilyStep1Modal(self.cog))
 
-    @discord.ui.button(label="Удалить семейное авто", style=discord.ButtonStyle.danger, row=0)
+    @discord.ui.button(label="Удалить семейное авто", style=discord.ButtonStyle.secondary, row=0)
     async def delete_family(self, interaction: discord.Interaction, _: discord.ui.Button):
         await self._open_delete_panel(interaction, FAMILY)
 
-    @discord.ui.button(label="Добавить грузовое авто", style=discord.ButtonStyle.success, row=1)
+    @discord.ui.button(label="Добавить грузовое авто", style=discord.ButtonStyle.secondary, row=1)
     async def add_cargo(self, interaction: discord.Interaction, _: discord.ui.Button):
         await interaction.response.send_modal(AddCargoStep1Modal(self.cog))
 
-    @discord.ui.button(label="Удалить грузовое авто", style=discord.ButtonStyle.danger, row=1)
+    @discord.ui.button(label="Удалить грузовое авто", style=discord.ButtonStyle.secondary, row=1)
     async def delete_cargo(self, interaction: discord.Interaction, _: discord.ui.Button):
         await self._open_delete_panel(interaction, CARGO)
 
@@ -508,7 +510,7 @@ class CarsCog(commands.Cog):
             title=str(row["title"]),
             description=description,
             url=str(row["url"]),
-            color=discord.Color.from_rgb(255, 255, 255),
+            color=0xFFFAFA,
         )
         embed.set_image(url=str(row["image_url"]))
         return embed

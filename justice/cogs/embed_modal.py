@@ -51,9 +51,7 @@ class EmbedModal(Modal, title="Создание эмбеда"):
         description = self.description_input.value or None
         image_url = self.image_input.value or None
 
-        embed = discord.Embed(
-            title=title, description=description, color=discord.Color.from_rgb(255, 255, 255)
-        )
+        embed = discord.Embed(title=title, description=description, color=0xFFFAFA)
         if image_url:
             embed.set_image(url=image_url)
 
@@ -66,7 +64,7 @@ class EmbedButtonView(View):
     def __init__(self):
         super().__init__(timeout=60)
 
-    @discord.ui.button(label="Открыть окно", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Открыть окно", style=discord.ButtonStyle.secondary)
     async def open_modal(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(EmbedModal())
 

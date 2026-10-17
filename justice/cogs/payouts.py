@@ -228,7 +228,7 @@ class Payouts(commands.Cog):
         embed = discord.Embed(
             title="Недельная премия",
             description="\n".join(description_lines)[:4000],
-            color=discord.Color.from_rgb(255, 255, 255),
+            color=0xFFFAFA,
             timestamp=week_end_msk.astimezone(timezone.utc),
         )
         embed.set_image(url=random.choice(images("payout_images", IMAGE_POOL)))

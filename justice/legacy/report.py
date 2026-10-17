@@ -97,7 +97,7 @@ class ReportModal(ui.Modal, title="Подача отчёта"):
         ts = int(datetime.now().timestamp())
         embed = discord.Embed(
             title="Новый отчёт по складу!",
-            color=discord.Color.from_rgb(255, 255, 255),
+            color=0xFFFAFA,
             description=(
                 f"**Игрок:** {self.nickname.value}\n"
                 f"**ID:** {static_id}\n"
@@ -116,7 +116,7 @@ class ReportModal(ui.Modal, title="Подача отчёта"):
             if msg.author.id == interaction.client.user.id and msg.components:
                 await msg.delete()
         view = ReportView(move_button=True)
-        new_embed = discord.Embed(color=discord.Color.from_rgb(255, 255, 255))
+        new_embed = discord.Embed(color=0xFFFAFA)
         new_embed.set_image(url="https://i.ibb.co/8DYKVC1k/Get-Back-To-Work.png")
         await iface.send(embed=new_embed, view=view)
 
@@ -143,7 +143,7 @@ class ReportView(ui.View):
         view.add_item(select)
         return view
 
-    @ui.button(label="Основное", style=discord.ButtonStyle.green, custom_id="main_button")
+    @ui.button(label="Основное", style=discord.ButtonStyle.secondary, custom_id="main_button")
     async def main(self, interaction: discord.Interaction, button: ui.Button):
         categories = [
             "Круглый Трахинот",
@@ -165,7 +165,7 @@ class ReportView(ui.View):
         view = self.get_select_view(categories)
         await interaction.response.send_message("Выберите категорию:", view=view, ephemeral=True)
 
-    @ui.button(label="Грибы", style=discord.ButtonStyle.blurple, custom_id="mushrooms_button")
+    @ui.button(label="Грибы", style=discord.ButtonStyle.secondary, custom_id="mushrooms_button")
     async def mushrooms(self, interaction: discord.Interaction, button: ui.Button):
         categories = [
             "Шампиньоны",
@@ -178,13 +178,13 @@ class ReportView(ui.View):
         view = self.get_select_view(categories)
         await interaction.response.send_message("Выберите категорию:", view=view, ephemeral=True)
 
-    @ui.button(label="Брёвна", style=discord.ButtonStyle.blurple, custom_id="logs_button")
+    @ui.button(label="Брёвна", style=discord.ButtonStyle.secondary, custom_id="logs_button")
     async def logs(self, interaction: discord.Interaction, button: ui.Button):
         categories = ["Сосновые брёвна", "Дубовые бревна", "Берёза", "Клён"]
         view = self.get_select_view(categories)
         await interaction.response.send_message("Выберите категорию:", view=view, ephemeral=True)
 
-    @ui.button(label="Ферма", style=discord.ButtonStyle.blurple, custom_id="farm_button")
+    @ui.button(label="Ферма", style=discord.ButtonStyle.secondary, custom_id="farm_button")
     async def farm(self, interaction: discord.Interaction, button: ui.Button):
         categories = ["Апельсины", "Пшеница", "Картофель", "Капуста", "Кукуруза", "Тыквы", "Бананы"]
         view = self.get_select_view(categories)
@@ -201,7 +201,7 @@ class Report(commands.Cog):
         if not any(r.id == ROLE_ID for r in interaction.user.roles):
             return await interaction.response.send_message("❌ У тебя нет прав.", ephemeral=True)
         await interaction.response.send_message("Интерфейс создан", ephemeral=True)
-        embed = discord.Embed(color=discord.Color.from_rgb(255, 255, 255))
+        embed = discord.Embed(color=0xFFFAFA)
         embed.set_image(url="https://i.ibb.co/8DYKVC1k/Get-Back-To-Work.png")
         await interaction.client.get_channel(INTERFACE_CHANNEL_ID).send(
             embed=embed, view=ReportView()

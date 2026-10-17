@@ -71,7 +71,7 @@ class Page3Modal(discord.ui.Modal, title="Заявка - Страница 3"):
         data = user_applications.get(interaction.user.id, {})
         data.update({"Любимый сервер": self.server.value, "Где ещё играли": self.other.value})
 
-        embed = discord.Embed(title="📥 Новая заявка", color=discord.Color.blue())
+        embed = discord.Embed(title="📥 Новая заявка", color=0xFFFAFA)
         for key, value in data.items():
             embed.add_field(name=key, value=value, inline=False)
         embed.set_footer(text=f"Отправитель: {interaction.user}")
@@ -88,29 +88,29 @@ class Page3Modal(discord.ui.Modal, title="Заявка - Страница 3"):
 
 
 class StartView(discord.ui.View):
-    @discord.ui.button(label="Начать заявку", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Начать заявку", style=discord.ButtonStyle.secondary)
     async def start(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(Page1Modal())
 
 
 class NextStepView(discord.ui.View):
-    @discord.ui.button(label="НАЧАТЬ ЗАНОВО", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="НАЧАТЬ ЗАНОВО", style=discord.ButtonStyle.secondary)
     async def restart(self, interaction: discord.Interaction, button: discord.ui.Button):
         user_applications.pop(interaction.user.id, None)
         await interaction.response.send_modal(Page1Modal())
 
-    @discord.ui.button(label=">> СЛЕДУЮЩАЯ", style=discord.ButtonStyle.success)
+    @discord.ui.button(label=">> СЛЕДУЮЩАЯ", style=discord.ButtonStyle.secondary)
     async def next(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(Page2Modal())
 
 
 class FinalStepView(discord.ui.View):
-    @discord.ui.button(label="НАЧАТЬ ЗАНОВО", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="НАЧАТЬ ЗАНОВО", style=discord.ButtonStyle.secondary)
     async def restart(self, interaction: discord.Interaction, button: discord.ui.Button):
         user_applications.pop(interaction.user.id, None)
         await interaction.response.send_modal(Page1Modal())
 
-    @discord.ui.button(label=">> СЛЕДУЮЩАЯ", style=discord.ButtonStyle.success)
+    @discord.ui.button(label=">> СЛЕДУЮЩАЯ", style=discord.ButtonStyle.secondary)
     async def final(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(Page3Modal())
 

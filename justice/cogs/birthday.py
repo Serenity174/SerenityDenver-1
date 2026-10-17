@@ -52,6 +52,7 @@ class BirthdayModal(Modal, title="Укажите свою дату рожден�
         )
         channel = interaction.client.get_channel(settings.birthday_channel_id)
         embed = discord.Embed(
+            color=0xFFFAFA,
             title="Новый день рождения!",
             description=(
                 f"{settings.birthday_emoji} {interaction.user.mention} {day:02}.{month:02} празднует свой день рождения!\n"
@@ -67,7 +68,7 @@ class BirthdayView(View):
         super().__init__(timeout=None)
 
     @discord.ui.button(
-        label="Указать дату", style=discord.ButtonStyle.primary, custom_id="birthday_button"
+        label="Указать дату", style=discord.ButtonStyle.secondary, custom_id="birthday_button"
     )
     async def submit(self, interaction, button):
         await interaction.response.send_modal(BirthdayModal())

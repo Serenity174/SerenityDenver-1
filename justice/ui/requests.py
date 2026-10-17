@@ -25,11 +25,9 @@ async def handle_decision(interaction, request_id, accepted, reason=""):
             embed = (
                 message.embeds[0]
                 if message.embeds
-                else discord.Embed(title=f"Заявка #{request_id}")
+                else discord.Embed(color=0xFFFAFA, title=f"Заявка #{request_id}")
             )
-            embed.color = (
-                discord.Color.green() if row["status"] == "accepted" else discord.Color.red()
-            )
+            embed.color = 0xFFFAFA
             await message.edit(
                 content=f"{status} · <@{row['user_id']}> · рассмотрел <@{row['handled_by']}>",
                 embed=embed,
@@ -82,13 +80,13 @@ class RequestView(View):
         return True
 
     @discord.ui.button(
-        label="Одобрить", style=discord.ButtonStyle.success, custom_id="request:accept"
+        label="Одобрить", style=discord.ButtonStyle.secondary, custom_id="request:accept"
     )
     async def accept(self, interaction, button):
         await handle_decision(interaction, self.request_id, True)
 
     @discord.ui.button(
-        label="Отказать", style=discord.ButtonStyle.danger, custom_id="request:reject"
+        label="Отказать", style=discord.ButtonStyle.secondary, custom_id="request:reject"
     )
     async def reject(self, interaction, button):
         await interaction.response.send_modal(RejectModal(self.request_id))

@@ -38,7 +38,7 @@ class PromoModal(Modal, title="Данные персонажа"):
     async def on_submit(self, interaction: discord.Interaction):
         target_channel_id = settings.bonus_channel_id
 
-        embed = discord.Embed(title="📥 Новый ответ на бонусы", color=discord.Color.green())
+        embed = discord.Embed(title="📥 Новый ответ на бонусы", color=0xFFFAFA)
         embed.add_field(name="Пользователь", value=interaction.user.mention, inline=False)
         embed.add_field(name="#StaticID", value=self.statik.value, inline=False)
         embed.add_field(name="Номер банковского счёта", value=self.bank_account.value, inline=False)
@@ -64,7 +64,7 @@ class PromoButton(View):
 
     @discord.ui.button(
         label="Получить бонусы",
-        style=discord.ButtonStyle.primary,
+        style=discord.ButtonStyle.secondary,
         custom_id="promo:get_bonus",  # <-- обязательный параметр для persistent View
     )
     async def get_bonus(self, interaction: discord.Interaction, button: Button):

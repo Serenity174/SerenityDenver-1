@@ -39,6 +39,7 @@ class VacationModal(Modal, title="Оформление отпуска"):
             channel = interaction.client.get_channel(settings.vacation_channel_id)
             message = await channel.send(
                 embed=discord.Embed(
+                    color=0xFFFAFA,
                     title="🛫 Новый отпуск",
                     description=(
                         f"{interaction.user.mention}\nПериод: {self.period.value}\nПричина: {self.reason.value}"

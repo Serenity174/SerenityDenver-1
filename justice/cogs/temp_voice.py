@@ -809,7 +809,7 @@ class TempVoice(commands.Cog):
                 "👑 - Передать права владельца другому участнику\n\n"
                 f"{settings.voice_footer_emoji} **Канал автоматически удалится через 30 секунд после того, как все участники покинут его**"
             ),
-            color=discord.Color.from_rgb(255, 255, 255),
+            color=0xFFFAFA,
         )
         await interaction.response.send_message(embed=embed, view=view)
 

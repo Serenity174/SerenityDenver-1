@@ -42,7 +42,7 @@ class ApplicationModal(Modal, title="Подача заявки в Justice"):
         }
         embed = discord.Embed(
             title="Новая заявка на вступление в Justice",
-            color=discord.Color.from_rgb(255, 255, 255),
+            color=0xFFFAFA,
         )
         for name in payload:
             embed.add_field(name=getattr(self, name).label, value=payload[name], inline=False)
@@ -57,7 +57,7 @@ class ApplicationView(View):
         super().__init__(timeout=None)
 
     @discord.ui.button(
-        label="Подать заявку", style=discord.ButtonStyle.primary, custom_id="submit_application"
+        label="Подать заявку", style=discord.ButtonStyle.secondary, custom_id="submit_application"
     )
     async def submit(self, interaction, button):
         await interaction.response.send_modal(ApplicationModal())

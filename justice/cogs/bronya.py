@@ -99,7 +99,7 @@ class SignUpView(View):
             )
 
     def build_embed(self) -> discord.Embed:
-        embed = discord.Embed(title=EMBED_TITLE, color=discord.Color.from_rgb(255, 255, 255))
+        embed = discord.Embed(title=EMBED_TITLE, color=0xFFFAFA)
         if self.participants:
             description = "\n".join(
                 f"{i + 1}. {getattr(user, 'mention', f'<@{user.id}>')}"
@@ -214,7 +214,7 @@ class SignUpView(View):
                 "Кнопки будут удалены. Записаться вновь будет невозможно.\n"
                 "Участники более не смогут покинуть запись."
             ),
-            color=discord.Color.orange(),
+            color=0xFFFAFA,
         )
         await interaction.response.send_message(
             embed=warning_embed, view=confirm_view, ephemeral=True

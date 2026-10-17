@@ -103,7 +103,7 @@ def emb_running(
             f"Хост: {host.mention}\n"
             f"Кол-во победителей: **{g.winners_count}**\n"
         ),
-        color=color,
+        color=0xFFFAFA,
         timestamp=g.ends_at,
     )
     real_id = display_id if display_id is not None else g.id
@@ -121,7 +121,7 @@ def emb_ended(
     e = discord.Embed(
         title=f"✅ Итоги розыгрыша: {g.prize}",
         description=f"Победители: {winners_ment}",
-        color=color,
+        color=0xFFFAFA,
         timestamp=utcnow(),
     )
     real_id = display_id if display_id is not None else g.id
@@ -161,7 +161,7 @@ class JoinView(View):
         self.add_item(
             discord.ui.Button(
                 label="Участвовать",
-                style=discord.ButtonStyle.success,
+                style=discord.ButtonStyle.secondary,
                 emoji=join_emoji,
                 custom_id=f"gw:join:{giveaway_id}",
             )
@@ -476,13 +476,13 @@ class Giveaways(commands.Cog):
     @settings.command(name="показать", description="Показать текущие настройки")
     async def cmd_settings_show(self, itx: discord.Interaction):
         color, emoji = await get_guild_settings(itx.guild_id)
-        e = discord.Embed(title="Настройки розыгрышей", color=color)
-        e.add_field(name="Цвет эмбеда", value=f"#{color:06X}")
+        e = discord.Embed(title="Настройки розыгрышей", color=0xFFFAFA)
+        e.add_field(name="Цвет эмбеда", value="#FFFAFA")
         e.add_field(name="Эмодзи кнопки", value=emoji)
         await itx.response.send_message(embed=e, ephemeral=True)
 
     @settings.command(name="изменить", description="Изменить цвет эмбеда или эмодзи кнопки участия")
-    @app_commands.describe(цвет_hex="HEX без #, напр. FFCC00", эмодзи="Эмодзи кнопки участия")
+    @app_commands.describe(цвет_hex="Общий цвет эмбедов: FFFAFA", эмодзи="Эмодзи кнопки участия")
     @high_staff()
     async def cmd_settings_set(
         self, itx: discord.Interaction, цвет_hex: Optional[str] = None, эмодзи: Optional[str] = None
@@ -493,6 +493,10 @@ class Giveaways(commands.Cog):
             )
         try:
             if цвет_hex:
+                if цвет_hex.strip().lstrip("#").upper() != "FFFAFA":
+                    return await itx.response.send_message(
+                        "Для всех эмбедов установлен общий цвет #FFFAFA.", ephemeral=True
+                    )
                 await set_guild_color(itx.guild_id, цвет_hex)
             if эмодзи:
                 await set_guild_emoji(itx.guild_id, эмодзи)

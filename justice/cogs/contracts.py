@@ -80,7 +80,7 @@ class ContractCloseConfirmView(View):
         self.contract_message = contract_message
 
     @discord.ui.button(
-        label="Подтвердить", style=discord.ButtonStyle.danger, custom_id="contract_close_confirm"
+        label="Подтвердить", style=discord.ButtonStyle.secondary, custom_id="contract_close_confirm"
     )
     async def confirm(self, interaction: Interaction, _: discord.ui.Button):
         if not await self.cog._ensure_deferred(interaction):
@@ -143,7 +143,10 @@ class ContractOpenView(View):
         await self.cog.handle_remove_user(interaction)
 
     @discord.ui.button(
-        label="Удалить кнопки", style=discord.ButtonStyle.danger, custom_id="contract_close", row=1
+        label="Удалить кнопки",
+        style=discord.ButtonStyle.secondary,
+        custom_id="contract_close",
+        row=1,
     )
     async def close(self, interaction: Interaction, _: discord.ui.Button):
         await self.cog.handle_close(interaction)
@@ -155,7 +158,7 @@ class AttendanceView(View):
         self.cog = cog
 
     @discord.ui.button(
-        label="Отметить явку всем", style=discord.ButtonStyle.primary, custom_id="contract_mark"
+        label="Отметить явку всем", style=discord.ButtonStyle.secondary, custom_id="contract_mark"
     )
     async def mark_all(self, interaction: Interaction, _: discord.ui.Button):
         await self.cog.handle_mark_all(interaction)
@@ -241,7 +244,7 @@ class ContractsCog(commands.Cog):
         embed = discord.Embed(
             title=title,
             description=f"Статус: {', '.join(status_parts)}",
-            color=discord.Color.from_rgb(255, 255, 255),
+            color=0xFFFAFA,
             timestamp=contract["created_at"],
         )
 
@@ -373,7 +376,7 @@ class ContractsCog(commands.Cog):
         embed = discord.Embed(
             title="Статистика явок",
             description=f"{target.mention}",
-            color=discord.Color.from_rgb(255, 255, 255),
+            color=0xFFFAFA,
             timestamp=datetime.now(timezone.utc),
         )
         embed.add_field(
@@ -509,7 +512,7 @@ class ContractsCog(commands.Cog):
                 "При подтверждении участники более не смогут покинуть запись и Вы более не сможете их исключить.\n"
                 "Проверьте финальный состав перед подтверждением!"
             ),
-            color=discord.Color.orange(),
+            color=0xFFFAFA,
         )
         view = ContractCloseConfirmView(self, contract_id, interaction.message)
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)

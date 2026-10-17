@@ -175,7 +175,7 @@ async def _log_attendance(
     embed = discord.Embed(
         title=title,
         description=description,
-        color=discord.Color.from_rgb(255, 255, 255),  # белый FFFFFF
+        color=0xFFFAFA,  # белый FFFFFF
     )
 
     await channel.send(content=content, embed=embed)

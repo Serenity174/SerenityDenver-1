@@ -50,7 +50,7 @@ class DBReportModal(Modal, title="Подача отчёта"):
         ts = int(datetime.now().timestamp())
         embed = discord.Embed(
             title="Новый отчёт по складу",
-            color=discord.Color.from_rgb(255, 255, 255),
+            color=0xFFFAFA,
             description=(
                 f"**Игрок:** {nickname}\n"
                 f"**Профиль:** <@{static_id}>\n"
@@ -159,7 +159,7 @@ class DBReportView(View):
         view.add_item(select)
         return view
 
-    @ui.button(label="Основное", style=discord.ButtonStyle.green, custom_id="db_main_button")
+    @ui.button(label="Основное", style=discord.ButtonStyle.secondary, custom_id="db_main_button")
     async def main(self, interaction: discord.Interaction, button: ui.Button):
         categories = [
             "Марлин",
@@ -175,7 +175,7 @@ class DBReportView(View):
         view = self.get_select_view(categories)
         await interaction.response.send_message("Выберите категорию:", view=view, ephemeral=True)
 
-    @ui.button(label="Грибы", style=discord.ButtonStyle.blurple, custom_id="db_mushrooms_button")
+    @ui.button(label="Грибы", style=discord.ButtonStyle.secondary, custom_id="db_mushrooms_button")
     async def mushrooms(self, interaction: discord.Interaction, button: ui.Button):
         categories = [
             "Шампиньоны",
@@ -188,13 +188,13 @@ class DBReportView(View):
         view = self.get_select_view(categories)
         await interaction.response.send_message("Выберите категорию:", view=view, ephemeral=True)
 
-    @ui.button(label="Брёвна", style=discord.ButtonStyle.blurple, custom_id="db_logs_button")
+    @ui.button(label="Брёвна", style=discord.ButtonStyle.secondary, custom_id="db_logs_button")
     async def logs(self, interaction: discord.Interaction, button: ui.Button):
         categories = ["Сосновые брёвна", "Дубовые бревна", "Берёза", "Клён"]
         view = self.get_select_view(categories)
         await interaction.response.send_message("Выберите категорию:", view=view, ephemeral=True)
 
-    @ui.button(label="Ферма", style=discord.ButtonStyle.blurple, custom_id="db_farm_button")
+    @ui.button(label="Ферма", style=discord.ButtonStyle.secondary, custom_id="db_farm_button")
     async def farm(self, interaction: discord.Interaction, button: ui.Button):
         categories = ["Апельсины", "Пшеница", "Картофель", "Капуста", "Кукуруза", "Тыквы", "Бананы"]
         view = self.get_select_view(categories)
@@ -202,7 +202,7 @@ class DBReportView(View):
 
     @ui.button(
         label="Все категории",
-        style=discord.ButtonStyle.primary,
+        style=discord.ButtonStyle.secondary,
         custom_id="report_all_categories",
         row=1,
     )
@@ -227,7 +227,9 @@ class ClearConfirmView(View):
         super().__init__(timeout=60)
         self.db_pool = db_pool
 
-    @ui.button(label="Да, удалить", style=discord.ButtonStyle.danger, custom_id="db_clear_confirm")
+    @ui.button(
+        label="Да, удалить", style=discord.ButtonStyle.secondary, custom_id="db_clear_confirm"
+    )
     async def confirm(self, interaction: discord.Interaction, button: ui.Button):
         if not any(r.id == settings.high_staff_role_id for r in interaction.user.roles):
             return await interaction.response.send_message("⚠️ Нет доступа.", ephemeral=True)
@@ -280,7 +282,7 @@ class ManageReportsView(View):
                 "Удалить все отчёты?\n"
                 "Удаление приведёт к полной очистке отчётов для всех пользователей!"
             ),
-            color=discord.Color.from_rgb(255, 255, 255),
+            color=0xFFFAFA,
         )
         await interaction.response.edit_message(
             embed=embed, content=None, view=ClearConfirmView(db_pool=self.db_pool)

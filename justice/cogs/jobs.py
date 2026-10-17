@@ -58,7 +58,9 @@ class Jobs(commands.Cog):
                     and message.embeds[0].footer.text == marker
                 ):
                     return
-            await channel.send(embed=discord.Embed.from_dict(payload["embed"]))
+            await channel.send(
+                embed=discord.Embed.from_dict({**payload["embed"], "color": 0xFFFAFA})
+            )
         elif row["kind"] == "contract_reminder":
             from justice.services.contract_rules import active_slots
 

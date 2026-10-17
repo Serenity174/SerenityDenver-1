@@ -123,7 +123,7 @@ class Welcome(commands.Cog):
         embed = discord.Embed(
             title=option("welcome_title", f"{settings.welcome_emoji} Добро пожаловать в Justice!"),
             description=option("welcome_text", description),
-            color=discord.Color.from_rgb(255, 255, 255),
+            color=0xFFFAFA,
         )
         embed.set_image(url=random.choice(images("welcome_images", self.images)))
 

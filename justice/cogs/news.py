@@ -94,7 +94,7 @@ class News(commands.Cog):
                 "Те кто явятся жмут на плюс.\n"
                 "Приоритет всегда у меньших рангов и у тех, кто за неделю меньше всего был на контрактах!"
             ),
-            color=discord.Color.from_rgb(255, 255, 255),
+            color=0xFFFAFA,
         )
         if image_file is not None:
             embed.set_image(url=f"attachment://{image_file.filename}")

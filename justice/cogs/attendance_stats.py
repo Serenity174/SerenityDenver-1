@@ -220,7 +220,7 @@ class AttendanceStatsCog(commands.Cog):
         end_utc = end_msk.astimezone(timezone.utc)
         rows = await self._fetch_week_data(start_utc, end_utc, week_date)
         title = f"Явка за неделю {start_msk.strftime('%d.%m')} - {end_msk.strftime('%d.%m')}"
-        embed = discord.Embed(title=title, color=discord.Color.from_rgb(255, 255, 255))
+        embed = discord.Embed(title=title, color=0xFFFAFA)
         if not rows:
             embed.description = "Данных за неделю пока нет."
             return embed

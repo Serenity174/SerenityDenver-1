@@ -4,6 +4,7 @@ import discord
 
 from justice.repositories.state import StateRepository
 from justice.services.settings import option
+from justice.ui.panel_texts import APPLICATION_TEXT, PROMOTION_TEXT, VACATION_TEXT
 
 PANEL_LABELS = {
     "reports": "Отчёты",
@@ -36,26 +37,21 @@ async def publish_panel(bot, key):
         "application": (
             settings.submit_channel_id,
             option("application_title", "Вступление в Justice"),
-            option(
-                "application_text", "Ответьте на вопросы и ожидайте рассмотрения старшим составом."
-            ),
+            option("application_text", APPLICATION_TEXT),
             ApplicationView(),
             option("application_image"),
         ),
         "promotion": (
             settings.promotion_channel_id,
             option("promotion_title", "Заявка на повышение"),
-            option("promotion_text", "Проверьте выполнение условий и приложите доказательства."),
+            option("promotion_text", PROMOTION_TEXT),
             PromotionView(),
             None,
         ),
         "vacation": (
             settings.vacation_channel_id,
             option("vacation_title", "Оформление отпуска"),
-            option(
-                "vacation_text",
-                "Укажите период и причину. По возвращении снимите роль кнопкой ниже.",
-            ),
+            option("vacation_text", VACATION_TEXT),
             VacationButtons(),
             None,
         ),
@@ -77,9 +73,7 @@ async def publish_panel(bot, key):
     channel_id, title, text, view, image = definitions[key]
     async with _locks.setdefault((settings.guild_id, key), asyncio.Lock()):
         channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
-        embed = discord.Embed(
-            title=title, description=text, color=discord.Color.from_rgb(255, 255, 255)
-        )
+        embed = discord.Embed(title=title, description=text, color=0xFFFAFA)
         if image:
             embed.set_image(url=image)
         state = StateRepository(bot.database.pool)

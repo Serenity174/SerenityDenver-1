@@ -65,10 +65,12 @@ async def publish_request(bot, repo, request_id, channel):
         if found is None:
             data = row["payload"].get("_embed") or row["payload"].get("legacy_embed")
             embed = (
-                discord.Embed.from_dict(data)
+                discord.Embed.from_dict({**data, "color": 0xFFFAFA})
                 if data
                 else discord.Embed(
-                    title="Заявка на рассмотрение", description=f"<@{row['user_id']}>"
+                    color=0xFFFAFA,
+                    title="Заявка на рассмотрение",
+                    description=f"<@{row['user_id']}>",
                 )
             )
             embed.set_footer(text=f"Заявка #{request_id}")

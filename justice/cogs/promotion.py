@@ -29,7 +29,9 @@ class PromotionModal(Modal, title="Подать отчёт на повышени
             for name in ("goods_and_metallurgy", "family_balance_top_up", "time_in_family")
         }
         payload["target_role_id"] = target
-        embed = discord.Embed(title=f"{settings.promotion_emoji} Отчёт на Повышение")
+        embed = discord.Embed(
+            color=0xFFFAFA, title=f"{settings.promotion_emoji} Отчёт на Повышение"
+        )
         for name in ("goods_and_metallurgy", "family_balance_top_up", "time_in_family"):
             embed.add_field(
                 name=getattr(self, name).label, value=payload[name] or "Не указано", inline=False
@@ -49,7 +51,9 @@ class NameChangeModal(Modal, title="Смена фамилии"):
         except ValueError as exc:
             return await interaction.response.send_message(str(exc), ephemeral=True)
         embed = discord.Embed(
-            title=f"{settings.promotion_emoji} Смена Фамилии", description=interaction.user.mention
+            color=0xFFFAFA,
+            title=f"{settings.promotion_emoji} Смена Фамилии",
+            description=interaction.user.mention,
         )
         embed.add_field(name="Доказательства", value=self.proof.value)
         await submit_request(
@@ -66,13 +70,13 @@ class PromotionView(View):
         super().__init__(timeout=None)
 
     @discord.ui.button(
-        label="Повыситься", style=discord.ButtonStyle.success, custom_id="submit_report_button"
+        label="Повыситься", style=discord.ButtonStyle.secondary, custom_id="submit_report_button"
     )
     async def promote(self, interaction, button):
         await interaction.response.send_modal(PromotionModal())
 
     @discord.ui.button(
-        label="Сменил фамилию", style=discord.ButtonStyle.primary, custom_id="name_change_button"
+        label="Сменил фамилию", style=discord.ButtonStyle.secondary, custom_id="name_change_button"
     )
     async def name_change(self, interaction, button):
         await interaction.response.send_modal(NameChangeModal())

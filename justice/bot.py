@@ -35,7 +35,6 @@ EXTENSIONS = (
     "embed_modal",
     "jobs",
     "admin",
-    "cleanup",
 )
 
 

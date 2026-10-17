@@ -1,6 +1,7 @@
 from dataclasses import fields
 
 from justice.services.settings import specs
+from justice.ui.panel_texts import APPLICATION_TEXT, PROMOTION_TEXT, VACATION_TEXT
 
 
 def defaults(settings):
@@ -43,12 +44,12 @@ def defaults(settings):
             "bonus_text": "Введите /promo E-73118 в игре. Сделайте скриншот подтверждения и отправьте его кнопкой ниже. Ожидайте рассмотрения заявки.",
             "birthday_text": "Сегодня {user} празднует день рождения! Желаем счастья, здоровья и радости!",
             "application_title": "Заявка на вступление в семью Justice",
-            "application_text": "Ответьте на вопросы и ожидайте рассмотрения старшим составом.",
+            "application_text": APPLICATION_TEXT,
             "application_image": "https://i.imgur.com/vxDAmbs.png",
             "promotion_title": "Подача отчёта на повышение",
-            "promotion_text": "Проверьте выполнение условий и приложите доказательства.",
+            "promotion_text": PROMOTION_TEXT,
             "vacation_title": "Оформление отпуска",
-            "vacation_text": "Укажите период и причину. По возвращении снимите роль кнопкой ниже.",
+            "vacation_text": VACATION_TEXT,
             "birthday_title": "Укажите дату рождения! 🎂",
             "report_title": "Отчёт по складу",
             "report_text": "Выберите категорию и приложите доказательство.",

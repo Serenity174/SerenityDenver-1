@@ -77,7 +77,7 @@ class Home(AdminView):
         select.callback = callback
         self.add_item(select)
 
-    @ui.button(label="Проверить работу", style=discord.ButtonStyle.primary)
+    @ui.button(label="Проверить работу", style=discord.ButtonStyle.secondary)
     async def diagnose(self, interaction, button):
         await interaction.response.defer(ephemeral=True)
         await self.bot.database.pool.fetchval("SELECT 1")
@@ -204,7 +204,9 @@ class SettingsList(AdminView):
                     view=Images(bot, owner, key),
                 )
             else:
-                embed = discord.Embed(title=spec.label, description=display(key, value)[:4000])
+                embed = discord.Embed(
+                    color=0xFFFAFA, title=spec.label, description=display(key, value)[:4000]
+                )
                 await interaction.response.edit_message(
                     content="Текущее значение. Выберите действие.",
                     embed=embed,
@@ -308,7 +310,7 @@ class EditSetting(AdminView):
             return await reply(interaction, "Эта настройка не относится к категориям.")
         await preview(interaction, self.bot, self.owner, self.key, 0, self.expected)
 
-    @ui.button(label="Изменить", style=discord.ButtonStyle.primary)
+    @ui.button(label="Изменить", style=discord.ButtonStyle.secondary)
     async def edit(self, interaction, button):
         await interaction.response.send_modal(
             ValueModal(self.bot, self.owner, self.key, self.expected)
@@ -340,7 +342,9 @@ async def preview(interaction, bot, owner, key, value, expected):
     except ValueError as exc:
         return await reply(interaction, str(exc))
     embed = discord.Embed(
-        title=bot.live_settings.specs[key].label, description=display(key, value)[:4000]
+        color=0xFFFAFA,
+        title=bot.live_settings.specs[key].label,
+        description=display(key, value)[:4000],
     )
     if bot.live_settings.specs[key].kind == "url":
         embed.set_image(url=value)
@@ -362,7 +366,7 @@ class Confirm(AdminView):
         self.key, self.value, self.expected = key, value, expected
         self.used = False
 
-    @ui.button(label="Сохранить", style=discord.ButtonStyle.success)
+    @ui.button(label="Сохранить", style=discord.ButtonStyle.secondary)
     async def save(self, interaction, button):
         if self.used:
             return await reply(interaction, "Это изменение уже обработано.")
@@ -449,7 +453,7 @@ class Prices(AdminView):
                 self.add_item(button)
         self.home_button()
 
-    @ui.button(label="Добавить категорию", style=discord.ButtonStyle.primary, row=1)
+    @ui.button(label="Добавить категорию", style=discord.ButtonStyle.secondary, row=1)
     async def add(self, interaction, button):
         await interaction.response.send_modal(PriceModal(self.bot, self.owner))
 
