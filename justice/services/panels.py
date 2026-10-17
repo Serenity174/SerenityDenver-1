@@ -80,7 +80,6 @@ async def publish_panel(bot, key):
         embed = discord.Embed(
             title=title, description=text, color=discord.Color.from_rgb(255, 255, 255)
         )
-        embed.set_footer(text=f"Панель Justice: {key}")
         if image:
             embed.set_image(url=image)
         state = StateRepository(bot.database.pool)
