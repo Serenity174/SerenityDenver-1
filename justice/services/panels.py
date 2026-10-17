@@ -58,7 +58,8 @@ async def publish_panel(bot, key):
         "birthday": (
             settings.birthday_channel_id,
             option("birthday_title", "Укажите дату рождения"),
-            "Заполните дату и пожелания.",
+            'Нажмите на кнопку ниже и введите дату рождения в формате "день.месяц" '
+            '(например, 12.07).\nДобавьте пожелание — и мы вас поздравим!',
             BirthdayView(),
             None,
         ),
