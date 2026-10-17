@@ -59,6 +59,38 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
                 await migrate(self.db.pool, path)
         self.assertEqual(await repo.get(1, "test", "key"), {"value": 1})
 
+    async def test_justice_migration_updates_saved_branding_and_preserves_other_settings(self):
+        from justice.repositories.settings import SettingsRepository
+        from justice.services.settings_defaults import defaults
+
+        repo = SettingsRepository(self.db.pool)
+        initial = {
+            "welcome_title": "Serenity",
+            "welcome_text": "/SERENITY",
+            "welcome_images": "https://example.com/old.png",
+            "news_images": "https://example.com/old.png",
+            "payout_images": "https://example.com/old.png",
+            "report_image": "https://example.com/old.png",
+            "application_image": "https://example.com/old.png",
+            "application_title": "Serenity",
+            "bonus_text": "/promo SERENITY",
+            "support_role_id": 123,
+            "bonus_image": "https://example.com/old.png",
+            "contract_slots": 8,
+        }
+        await repo.seed(1, initial)
+        await self.db.pool.execute((MIGRATIONS / "005_justice_branding.sql").read_text("utf-8"))
+        saved = await repo.seed(1, {})
+        expected = defaults(get_settings())
+        for key in initial.keys() - {"support_role_id", "bonus_image", "contract_slots"}:
+            self.assertEqual(saved[key], expected[key], key)
+        self.assertEqual(saved["support_role_id"], 1495255277744951296)
+        self.assertEqual(saved["contract_slots"], 8)
+        self.assertNotIn("bonus_image", saved)
+        self.assertIn("/promo E-73118", saved["welcome_text"])
+        self.assertIn("/promo E-73118", saved["bonus_text"])
+        self.assertEqual(len(await repo.history(1)), 10)
+
     async def test_state_survives_new_connection(self):
         await StateRepository(self.db.pool).put(
             1, "voice", 44, {"owner_id": 55, "allowed_users": [66]}

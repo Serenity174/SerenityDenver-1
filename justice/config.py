@@ -54,7 +54,7 @@ class Settings:
     token: str = field(default="", repr=False, metadata={"allow_empty": True})
     database_url: str = field(default="", repr=False, metadata={"allow_empty": True})
     bot_command_prefix: str = "!"
-    bot_activity_name: str = "/promo JUSTICE"
+    bot_activity_name: str = "/promo E-73118"
     discord_invite_url: str = "https://discord.gg/4YX46cs39M"
     temp_voice_default_name: str = "{user}'s channel"
     temp_voice_default_limit: int = field(default=0, metadata={"min": 0, "max": 99})
