@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import discord
 
@@ -15,9 +16,10 @@ PANEL_LABELS = {
     "bonus": "Бонусы",
 }
 _locks = {}
+log = logging.getLogger(__name__)
 
 
-async def publish_panel(bot, key):
+async def publish_panel(bot, key, *, move_to_bottom=False):
     from justice.cogs.applications import ApplicationView
     from justice.cogs.birthday import BirthdayView
     from justice.cogs.bonus import PromoButton
@@ -107,6 +109,12 @@ async def publish_panel(bot, key):
                 ):
                     message = candidate
                     break
+        previous_message = None
+        if message is not None and move_to_bottom:
+            latest = [item async for item in channel.history(limit=1)]
+            if not latest or latest[0].id != message.id:
+                previous_message = message
+                message = None
         if message is None:
             message = await channel.send(embed=embed, view=view)
         else:
@@ -117,6 +125,11 @@ async def publish_panel(bot, key):
             key,
             {"channel_id": channel_id, "message_id": message.id},
         )
+        if previous_message is not None:
+            try:
+                await previous_message.delete()
+            except discord.NotFound:
+                pass
         if saved and saved["channel_id"] != channel_id:
             try:
                 previous_channel = bot.get_channel(saved["channel_id"]) or await bot.fetch_channel(
@@ -127,3 +140,22 @@ async def publish_panel(bot, key):
             except (discord.NotFound, discord.Forbidden):
                 pass
         return message
+
+
+async def refresh_panel(bot, key):
+    """Refresh only the control panel; never remove application or report history."""
+    try:
+        return await publish_panel(bot, key, move_to_bottom=True)
+    except discord.HTTPException:
+        log.exception("Could not move panel to bottom: %s", key)
+        return None
+
+
+async def refresh_saved_panels(bot):
+    state = StateRepository(bot.database.pool)
+    for key in PANEL_LABELS:
+        if await state.get(bot.settings.guild_id, "managed_panels", key):
+            await refresh_panel(bot, key)
+    voice = bot.get_cog("TempVoice")
+    if voice is not None:
+        await voice.refresh_saved_panels()

@@ -47,6 +47,9 @@ class VacationModal(Modal, title="Оформление отпуска"):
                 )
             )
             await repo.attach_message(row["id"], channel.id, message.id)
+            from justice.services.panels import refresh_panel
+
+            await refresh_panel(interaction.client, "vacation")
         await interaction.followup.send("Отпуск сохранён, роль выдана.", ephemeral=True)
 
 

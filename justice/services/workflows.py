@@ -41,6 +41,11 @@ async def submit_request(interaction, kind, payload, channel_id, embed):
         channel_id
     )
     await publish_request(interaction.client, repo, row["id"], channel)
+    from justice.services.panels import refresh_panel
+
+    panel = "promotion" if kind == "name_change" else kind
+    if panel in ("application", "promotion", "bonus"):
+        await refresh_panel(interaction.client, panel)
     await interaction.followup.send(
         "Заявка сохранена и отправлена на рассмотрение.", ephemeral=True
     )

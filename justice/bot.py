@@ -123,6 +123,13 @@ class JusticeBot(commands.Bot):
             log.info("Loaded extension %s", extension)
         self.spawn(self._watch_lease(), name="database-lease")
         self.spawn(self._sync_commands_on_ready(), name="sync-commands")
+        self.spawn(self._refresh_panels_on_ready(), name="refresh-panels")
+
+    async def _refresh_panels_on_ready(self):
+        await self.wait_until_ready()
+        from justice.services.panels import refresh_saved_panels
+
+        await refresh_saved_panels(self)
 
     async def sync_guild_commands(self):
         guild = discord.Object(id=self.settings.guild_id)

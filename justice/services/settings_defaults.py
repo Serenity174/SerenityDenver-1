@@ -29,7 +29,7 @@ def defaults(settings):
             "timezone": "Europe/Moscow",
             "reminder_minutes": 10,
             "reminder_text": REMINDER_TEXT,
-            "welcome_title": "👋 Добро пожаловать в Justice!",
+            "welcome_title": f"{settings.welcome_emoji} Добро пожаловать в Justice!",
             "welcome_text": (
                 f"Для подачи заявки переходите в канал <#{settings.submit_channel_id}>.\n"
                 "Для получения роли Family Friends/Best Friend обратитесь к старшему составу.\n"

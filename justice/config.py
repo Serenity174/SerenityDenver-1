@@ -9,6 +9,8 @@ from urllib.parse import urlsplit
 
 from dotenv import dotenv_values
 
+from justice.ui.emojis import CLOUDS, JUSTICE, LOADING, normalize_emojis
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -55,6 +57,7 @@ class Settings:
     database_url: str = field(default="", repr=False, metadata={"allow_empty": True})
     bot_command_prefix: str = "!"
     bot_activity_name: str = "/promo E-73118"
+    bonus_review_channel_id: int = 1495255518502060183
     discord_invite_url: str = "https://discord.gg/4YX46cs39M"
     temp_voice_default_name: str = "{user}'s channel"
     temp_voice_default_limit: int = field(default=0, metadata={"min": 0, "max": 99})
@@ -70,14 +73,14 @@ class Settings:
     db_pool_max: int = field(default=10, metadata={"min": 2, "max": 50})
     log_level: str = "INFO"
 
-    birthday_emoji: str = "🎂"
-    welcome_emoji: str = "👋"
+    birthday_emoji: str = JUSTICE
+    welcome_emoji: str = JUSTICE
     promotion_emoji: str = "📋"
     approve_emoji: str = "✅"
     reject_emoji: str = "❌"
-    voice_settings_emoji: str = "⚙️"
-    voice_footer_emoji: str = "☁️"
-    reminder_emoji: str = "⏳"
+    voice_settings_emoji: str = LOADING
+    voice_footer_emoji: str = CLOUDS
+    reminder_emoji: str = LOADING
 
     def validate_runtime(self) -> None:
         """Check credentials before connecting the bot, without printing them."""
@@ -148,7 +151,9 @@ def load_settings(
             path = Path(value).expanduser()
             parsed[setting.name] = path if path.is_absolute() else PROJECT_ROOT / path
         else:
-            parsed[setting.name] = value
+            parsed[setting.name] = (
+                normalize_emojis(value) if setting.name.endswith("_emoji") else value
+            )
     if errors:
         raise ConfigurationError("Ошибки конфигурации:\n" + "\n".join(errors))
     if parsed.get("db_pool_min", 2) > parsed.get("db_pool_max", 10):

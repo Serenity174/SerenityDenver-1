@@ -57,10 +57,16 @@ class Jobs(commands.Cog):
                     and message.embeds
                     and message.embeds[0].footer.text == marker
                 ):
+                    from justice.services.panels import refresh_panel
+
+                    await refresh_panel(self.bot, "reports")
                     return
             await channel.send(
                 embed=discord.Embed.from_dict({**payload["embed"], "color": 0xFFFAFA})
             )
+            from justice.services.panels import refresh_panel
+
+            await refresh_panel(self.bot, "reports")
         elif row["kind"] == "contract_reminder":
             from justice.services.contract_rules import active_slots
 
@@ -95,6 +101,10 @@ class Jobs(commands.Cog):
                 payload["channel_id"]
             )
             await channel.send(payload["content"])
+            if payload["channel_id"] == self.bot.settings.birthday_channel_id:
+                from justice.services.panels import refresh_panel
+
+                await refresh_panel(self.bot, "birthday")
         else:
             raise ValueError("Unknown job kind")
 

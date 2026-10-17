@@ -11,6 +11,7 @@ from discord.ext import commands, tasks
 from justice.config import get_settings
 from justice.repositories.state import StateRepository
 from justice.services.serialization import channel_mutation
+from justice.services.voice_icons import VOICE_BUTTONS, load_voice_icons
 from justice.services.voice_state import load_channels, reconcile_channels, save_channel
 from justice.ui.base import Modal, View
 
@@ -422,6 +423,10 @@ class TempVoicePanelView(View):
     def __init__(self, bot: commands.Bot):
         super().__init__(timeout=None)
         self.bot = bot
+        for button in self.children:
+            name, label = VOICE_BUTTONS[button.custom_id]
+            button.emoji = getattr(bot, "voice_icons", {}).get(name)
+            button.label = " " if button.emoji else label
 
     async def on_error(self, interaction: discord.Interaction, error: Exception, item):
         _log_exception("TempVoicePanelView error", error)
@@ -430,7 +435,6 @@ class TempVoicePanelView(View):
         label=" ",
         style=discord.ButtonStyle.secondary,
         custom_id="tempvoice-lock",
-        emoji="🔒",
         row=0,
     )
     async def lock_button(self, interaction: discord.Interaction, _: discord.ui.Button):
@@ -450,7 +454,6 @@ class TempVoicePanelView(View):
         label=" ",
         style=discord.ButtonStyle.secondary,
         custom_id="tempvoice-hide",
-        emoji="👁️",
         row=0,
     )
     async def hide_button(self, interaction: discord.Interaction, _: discord.ui.Button):
@@ -472,7 +475,6 @@ class TempVoicePanelView(View):
         label=" ",
         style=discord.ButtonStyle.secondary,
         custom_id="tempvoice-limit",
-        emoji="👥",
         row=0,
     )
     async def limit_button(self, interaction: discord.Interaction, _: discord.ui.Button):
@@ -486,7 +488,6 @@ class TempVoicePanelView(View):
         label=" ",
         style=discord.ButtonStyle.secondary,
         custom_id="tempvoice-rename",
-        emoji="✏️",
         row=0,
     )
     async def rename_button(self, interaction: discord.Interaction, _: discord.ui.Button):
@@ -500,7 +501,6 @@ class TempVoicePanelView(View):
         label=" ",
         style=discord.ButtonStyle.secondary,
         custom_id="tempvoice-transfer",
-        emoji="👑",
         row=1,
     )
     async def transfer_button(self, interaction: discord.Interaction, _: discord.ui.Button):
@@ -514,7 +514,6 @@ class TempVoicePanelView(View):
         label=" ",
         style=discord.ButtonStyle.secondary,
         custom_id="tempvoice-allow",
-        emoji="➕",
         row=1,
     )
     async def allow_button(self, interaction: discord.Interaction, _: discord.ui.Button):
@@ -528,7 +527,6 @@ class TempVoicePanelView(View):
         label=" ",
         style=discord.ButtonStyle.secondary,
         custom_id="tempvoice-block",
-        emoji="⛔",
         row=1,
     )
     async def block_button(self, interaction: discord.Interaction, _: discord.ui.Button):
@@ -718,6 +716,7 @@ class TempVoice(commands.Cog):
 
     async def cog_load(self):
         await load_channels(active_channels, TempVoiceChannelInfo)
+        await load_voice_icons(self.bot)
         self.bot.add_view(TempVoicePanelView(self.bot))
         if settings.temp_voice_guild_id:
             guild = discord.Object(id=settings.temp_voice_guild_id)
@@ -791,7 +790,21 @@ class TempVoice(commands.Cog):
             )
             return
 
-        view = TempVoicePanelView(self.bot)
+        await interaction.response.send_message(
+            embed=self.panel_embed(), view=TempVoicePanelView(self.bot)
+        )
+        message = await interaction.original_response()
+        await StateRepository().put(
+            interaction.guild_id,
+            "voice_panels",
+            message.id,
+            {"channel_id": message.channel.id, "message_id": message.id},
+        )
+
+    def panel_embed(self):
+        def icon(name):
+            return str(getattr(self.bot, "voice_icons", {}).get(name, ""))
+
         embed = discord.Embed(
             title="Панель управление приватными комнатами",
             description=(
@@ -799,19 +812,61 @@ class TempVoice(commands.Cog):
                 f"1. Зайдите в <#{settings.temp_voice_trigger_channel_id}> для создания временного канала.\n"
                 "2. Используйте кнопки ниже для управления вашим каналом.\n\n"
                 f"{settings.voice_settings_emoji} Настройки канала:\n\n"
-                "✏️ - Изменить название канала\n"
-                "👥 - Установить максимальный лимит участников (0 = без лимита)\n"
-                "🔒 - Закрыть или открыть доступ для всех\n"
-                "👁️ - Сделать канал скрытым или открытым для всех\n\n"
-                "👥 Управление участниками:\n\n"
-                "➕ - Разрешить доступ конкретному пользователю\n"
-                "⛔ - Запретить доступ конкретному пользователю\n"
-                "👑 - Передать права владельца другому участнику\n\n"
+                f"{icon('redact')} - Изменить название канала\n"
+                f"{icon('limit')} - Установить максимальный лимит участников (0 = без лимита)\n"
+                f"{icon('lock')} - Закрыть или открыть доступ для всех\n"
+                f"{icon('glaza')} - Сделать канал скрытым или открытым для всех\n\n"
+                "Управление участниками:\n\n"
+                f"{icon('adduser')} - Разрешить доступ конкретному пользователю\n"
+                f"{icon('zapret')} - Запретить доступ конкретному пользователю\n"
+                f"{icon('korona')} - Передать права владельца другому участнику\n\n"
                 f"{settings.voice_footer_emoji} **Канал автоматически удалится через 30 секунд после того, как все участники покинут его**"
             ),
             color=0xFFFAFA,
         )
-        await interaction.response.send_message(embed=embed, view=view)
+        return embed
+
+    async def refresh_saved_panels(self):
+        state = StateRepository()
+        rows = [
+            row for row in await state.all("voice_panels") if row["guild_id"] == settings.guild_id
+        ]
+        # Earlier versions never recorded voice panel IDs. Adopt their existing messages once.
+        if not rows:
+            guild = self.bot.get_guild(settings.guild_id)
+            if guild is None:
+                return
+            for channel in guild.text_channels:
+                permissions = channel.permissions_for(guild.me)
+                if not permissions.view_channel or not permissions.read_message_history:
+                    continue
+                try:
+                    async for message in channel.history(limit=100):
+                        if message.author.id != self.bot.user.id:
+                            continue
+                        if not any(
+                            getattr(button, "custom_id", None) == "tempvoice-lock"
+                            for row in message.components
+                            for button in row.children
+                        ):
+                            continue
+                        value = {"channel_id": channel.id, "message_id": message.id}
+                        await state.put(settings.guild_id, "voice_panels", message.id, value)
+                        rows.append({"guild_id": settings.guild_id, "value": value})
+                except discord.HTTPException:
+                    logger.exception("Could not recover voice panels in channel %s", channel.id)
+        for row in rows:
+            value = row["value"]
+            try:
+                channel = self.bot.get_channel(value["channel_id"]) or await self.bot.fetch_channel(
+                    value["channel_id"]
+                )
+                message = await channel.fetch_message(value["message_id"])
+                await message.edit(embed=self.panel_embed(), view=TempVoicePanelView(self.bot))
+            except discord.NotFound:
+                await state.delete(settings.guild_id, "voice_panels", value["message_id"])
+            except discord.HTTPException:
+                logger.exception("Could not refresh voice panel %s", value["message_id"])
 
 
 async def setup(bot: commands.Bot):

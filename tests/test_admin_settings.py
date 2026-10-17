@@ -155,6 +155,9 @@ class AdminSettingsTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await feature_check(interaction, "justice.cogs.Otpysk"))
 
     async def test_report_delivery_recovers_message_after_interrupted_commit(self):
+        refresh_patch = patch("justice.services.panels.refresh_panel", new_callable=AsyncMock)
+        refresh = refresh_patch.start()
+        self.addCleanup(refresh_patch.stop)
         from datetime import datetime, timezone
 
         import discord
@@ -184,6 +187,7 @@ class AdminSettingsTests(unittest.IsolatedAsyncioTestCase):
             }
         )
         channel.send.assert_not_awaited()
+        refresh.assert_awaited_once_with(bot, "reports")
         pool.fetchrow.return_value = None
         await Jobs(bot).dispatch(
             {

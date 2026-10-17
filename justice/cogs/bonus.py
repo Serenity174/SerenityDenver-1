@@ -36,7 +36,7 @@ class PromoModal(Modal, title="Данные персонажа"):
     )
 
     async def on_submit(self, interaction: discord.Interaction):
-        target_channel_id = settings.bonus_channel_id
+        target_channel_id = settings.bonus_review_channel_id
 
         embed = discord.Embed(title="📥 Новый ответ на бонусы", color=0xFFFAFA)
         embed.add_field(name="Пользователь", value=interaction.user.mention, inline=False)

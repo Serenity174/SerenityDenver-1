@@ -40,6 +40,8 @@ async def handle_decision(interaction, request_id, accepted, reason=""):
             row["user_id"]
         )
         text = f"Ваша заявка #{request_id}: {status.lower()}."
+        if row["kind"] == "bonus" and accepted:
+            text = "Вам выдана награда за ввод промокода. Проверьте счёт!"
         if row["kind"] == "application" and accepted:
             text += f" Обратитесь к старшему составу в <#{get_settings().accept_channel_id}>."
         if reason:

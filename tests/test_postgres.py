@@ -81,6 +81,9 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
         await repo.seed(1, initial)
         await self.db.pool.execute((MIGRATIONS / "005_justice_branding.sql").read_text("utf-8"))
         await self.db.pool.execute((MIGRATIONS / "006_orlando_server.sql").read_text("utf-8"))
+        await self.db.pool.execute(
+            (MIGRATIONS / "008_panel_emojis_and_bonus_destination.sql").read_text("utf-8")
+        )
         saved = await repo.seed(1, {})
         expected = defaults(get_settings())
         for key in initial.keys() - {"support_role_id", "bonus_image", "contract_slots"}:

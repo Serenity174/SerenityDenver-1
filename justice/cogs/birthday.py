@@ -60,6 +60,9 @@ class BirthdayModal(Modal, title="Укажите свою дату рожден�
             ),
         )
         await channel.send(embed=embed)
+        from justice.services.panels import refresh_panel
+
+        await refresh_panel(interaction.client, "birthday")
         await interaction.followup.send("Дата сохранена.", ephemeral=True)
 
 
