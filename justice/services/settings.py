@@ -23,7 +23,7 @@ class SettingSpec:
 LABELS = {
     "high_staff": "Старший состав",
     "staff": "Рассмотрение заявок",
-    "application": "Вступление",
+    "application": "Роли после принятия в семью",
     "rank": "Ранги",
     "family": "Семья",
     "verified": "Подтверждённые участники",

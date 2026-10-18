@@ -108,6 +108,29 @@ class PostgreSQLTests(unittest.IsolatedAsyncioTestCase):
         finally:
             await other.close()
 
+    async def test_acceptance_role_migration_preserves_reviewer_roles(self):
+        from justice.repositories.settings import SettingsRepository
+
+        repo = SettingsRepository(self.db.pool)
+        reviewer_roles = [1495255260321677462, 1495255288838881352]
+        await repo.seed(
+            1,
+            {
+                "application_role_ids": reviewer_roles,
+                "staff_role_ids": reviewer_roles,
+                "high_staff_role_id": reviewer_roles[0],
+            },
+        )
+        await self.db.pool.execute(
+            (MIGRATIONS / "009_application_acceptance_roles.sql").read_text("utf-8")
+        )
+        saved = await repo.seed(1, {})
+        self.assertEqual(saved["application_role_ids"], [1495255224158519409, 1495255217825124442])
+        self.assertEqual(saved["staff_role_ids"], reviewer_roles)
+        self.assertEqual(saved["high_staff_role_id"], reviewer_roles[0])
+        history = await repo.history(1)
+        self.assertEqual(history[0]["old_value"], reviewer_roles)
+
     async def test_admin_settings_persist_history_and_reject_stale_edits(self):
         from justice.repositories.settings import SettingsRepository
 

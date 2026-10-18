@@ -123,6 +123,12 @@ async def resolve_request(interaction, request_id, accepted, reason=""):
                 if accepted and row["kind"] != "bonus":
                     raise ValueError("Участник покинул сервер.") from None
         if accepted and row["kind"] == "application":
+            reviewer_roles = {*settings.staff_role_ids, settings.high_staff_role_id}
+            if reviewer_roles.intersection(settings.application_role_ids):
+                raise ValueError(
+                    "Роли после принятия совпадают с ролями рассмотрения заявок. "
+                    "Исправьте настройки ролей перед одобрением."
+                )
             roles = [
                 interaction.guild.get_role(role_id) for role_id in settings.application_role_ids
             ]

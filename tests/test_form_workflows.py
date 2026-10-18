@@ -44,6 +44,56 @@ class FormWorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.channel.send.assert_awaited_once()
         refresh.assert_awaited_once_with(self.client, "birthday")
 
+    async def test_family_acceptance_grants_member_roles_and_rejects_reviewer_roles(self):
+        from dataclasses import replace
+
+        from justice.services.workflows import resolve_request
+
+        for unsafe in (False, True):
+            with self.subTest(unsafe=unsafe):
+                settings = replace(
+                    self.settings,
+                    application_role_ids=self.settings.staff_role_ids
+                    if unsafe
+                    else (1495255224158519409, 1495255217825124442),
+                )
+                row = {
+                    "id": 7,
+                    "guild_id": settings.guild_id,
+                    "user_id": self.member.id,
+                    "kind": "application",
+                    "status": "pending",
+                    "payload": {},
+                }
+                conn = SimpleNamespace(execute=AsyncMock())
+
+                @asynccontextmanager
+                async def locked(_):
+                    yield conn, row
+
+                repo = SimpleNamespace(
+                    locked=locked, finish=AsyncMock(), get=AsyncMock(return_value=row)
+                )
+                self.member.add_roles.reset_mock()
+                self.interaction.guild.get_member = lambda _: self.member
+                self.interaction.guild.get_role = lambda uid: SimpleNamespace(id=uid)
+                with (
+                    patch("justice.services.workflows.get_settings", return_value=settings),
+                    patch("justice.services.workflows.can_review", return_value=True),
+                    patch("justice.services.workflows.RequestRepository", return_value=repo),
+                ):
+                    if unsafe:
+                        with self.assertRaises(ValueError):
+                            await resolve_request(self.interaction, 7, True)
+                        self.member.add_roles.assert_not_awaited()
+                        repo.finish.assert_not_awaited()
+                    else:
+                        await resolve_request(self.interaction, 7, True)
+                        self.assertEqual(
+                            [role.id for role in self.member.add_roles.call_args.args],
+                            [1495255224158519409, 1495255217825124442],
+                        )
+
     async def test_vacation_submission_refreshes_panel_after_publication(self):
         from justice.cogs.Otpysk import VacationModal
 
